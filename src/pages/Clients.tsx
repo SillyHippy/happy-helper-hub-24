@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, Users, Pencil, Trash2, UserCheck } from "lucide-react";
-import ClientForm, { ClientData } from "@/components/ClientForm";
-import ClientDetail from "@/components/ClientDetail";
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Pencil, Trash, Folder, AlertCircle, RefreshCw } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,429 +28,344 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { toast as sonnerToast } from "sonner";
+} from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
+import EmptyState from '@/components/EmptyState';
+import ClientForm from '@/components/ClientForm';
+import { getClients, createClient, updateClient, deleteClient } from '@/lib/appwrite';
+import { testAppwriteConnection } from '@/lib/utils';
+import { Client } from '@/lib/types';
 
-interface ClientsProps {
-  clients: ClientData[];
-  addClient: (client: ClientData) => void;
-  updateClient: (client: ClientData) => void;
-  deleteClient: (clientId: string) => void;
-}
+const Clients = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{connected: boolean, message: string} | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
-const Clients: React.FC<ClientsProps> = ({ 
-  clients, 
-  addClient, 
-  updateClient, 
-  deleteClient 
-}) => {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
-  const [isDetailView, setIsDetailView] = useState(false);
-  const isMobile = useIsMobile();
+  // Test the connection on component mount
+  useEffect(() => {
+    testConnection();
+  }, []);
 
-  const handleAddClient = async (client: ClientData) => {
-    setIsLoading(true);
+  // Function to test connection to Appwrite
+  const testConnection = async () => {
+    setIsTestingConnection(true);
+    const status = await testAppwriteConnection();
+    setConnectionStatus(status);
+    setIsTestingConnection(false);
     
-    try {
-      const { data: existingClient, error: checkError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id', client.id)
-        .single();
-      
-      if (existingClient) {
-        const newId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        client.id = newId;
-        console.log("Client ID already exists, generated new ID:", newId);
-      }
-      
-      const { error } = await supabase
-        .from('clients')
-        .insert({
-          id: client.id,
-          name: client.name,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          notes: client.notes
-        });
-      
-      if (error) {
-        if (error.code === '23505') {
-          sonnerToast.error("This client already exists", {
-            description: "Please try again with different information"
-          });
-        } else {
-          throw error;
-        }
-      } else {
-        addClient(client);
-        setIsAddDialogOpen(false);
-        sonnerToast.success("Client added successfully");
-      }
-    } catch (error) {
-      console.error("Error adding client:", error);
-      sonnerToast.error("Failed to add client", {
-        description: error instanceof Error ? error.message : "Unknown error occurred"
-      });
-    } finally {
-      setIsLoading(false);
+    if (!status.connected) {
+      toast.error(status.message);
     }
   };
 
-  const handleUpdateClient = async (client: ClientData) => {
-    setIsLoading(true);
+  // Fetch clients with React Query
+  const { data: clients = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['clients'],
+    queryFn: getClients,
+    retry: 3, // Retry failed requests 3 times
+    staleTime: 60000, // Consider data fresh for 1 minute
+    enabled: connectionStatus?.connected !== false, // Only run if connection is confirmed
+  });
+
+  // Mutations
+  const createClientMutation = useMutation({
+    mutationFn: (data: { name: string; email: string; phone: string; address: string }) => 
+      createClient(data.name, data.email, data.phone, data.address),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Client created successfully');
+      setIsFormOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error creating client:', error);
+      toast.error('Failed to create client');
+    },
+  });
+
+  const updateClientMutation = useMutation({
+    mutationFn: (data: { id: string; name?: string; email?: string; phone?: string; address?: string }) => 
+      updateClient(data.id, { name: data.name, email: data.email, phone: data.phone, address: data.address }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Client updated successfully');
+      setIsFormOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error updating client:', error);
+      toast.error('Failed to update client');
+    },
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: (id: string) => deleteClient(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Client deleted successfully');
+      setIsDeleteDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error deleting client:', error);
+      toast.error('Failed to delete client');
+    },
+  });
+
+  // Event handlers
+  const handleCreateClient = async (data: Partial<Client>) => {
+    createClientMutation.mutate({ 
+      name: data.name!, 
+      email: data.email!, 
+      phone: data.phone || '', 
+      address: data.address || '' 
+    });
+  };
+
+  const handleUpdateClient = async (data: Partial<Client>) => {
+    if (!selectedClient) return;
     
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          name: client.name,
-          email: client.email,
-          phone: client.phone,
-          address: client.address,
-          notes: client.notes
-        })
-        .eq('id', client.id);
-      
-      if (error) throw error;
-      
-      updateClient(client);
-    } catch (error) {
-      console.error("Error updating client:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    updateClientMutation.mutate({
+      id: selectedClient.$id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+    });
   };
 
   const handleDeleteClient = async () => {
-    if (deleteClientId) {
-      setIsLoading(true);
-      try {
-        console.log("Deleting client with ID:", deleteClientId);
-        
-        // Step 1: Delete all serve attempts for this client from Supabase
-        try {
-          const { data: serveData, error: serveQueryError } = await supabase
-            .from('serve_attempts')
-            .select('id')
-            .eq('client_id', deleteClientId);
-            
-          if (serveQueryError) {
-            console.error("Error querying serve attempts:", serveQueryError);
-          } else if (serveData && serveData.length > 0) {
-            console.log(`Found ${serveData.length} serve attempts to delete`);
-            
-            // Delete all serve attempts in one operation
-            const { error: deleteServeError } = await supabase
-              .from('serve_attempts')
-              .delete()
-              .eq('client_id', deleteClientId);
-              
-            if (deleteServeError) {
-              console.error("Error deleting serve attempts:", deleteServeError);
-            } else {
-              console.log(`Successfully deleted all serve attempts for client ${deleteClientId}`);
-            }
-          }
-        } catch (serveErr) {
-          console.error("Exception handling serve attempts deletion:", serveErr);
-        }
-        
-        // Step 2: Delete any client cases
-        try {
-          const { error: caseError } = await supabase
-            .from('client_cases')
-            .delete()
-            .eq('client_id', deleteClientId);
-            
-          if (caseError) {
-            console.error("Error deleting client cases:", caseError);
-          } else {
-            console.log("Successfully deleted client cases");
-          }
-        } catch (caseErr) {
-          console.error("Exception deleting client cases:", caseErr);
-        }
-        
-        // Step 3: Delete any client documents
-        try {
-          const { data: docData, error: docQueryError } = await supabase
-            .from('client_documents')
-            .select('id, file_path')
-            .eq('client_id', deleteClientId);
-            
-          if (docQueryError) {
-            console.error("Error querying client documents:", docQueryError);
-          } else if (docData && docData.length > 0) {
-            // Delete document records
-            const { error: docDeleteError } = await supabase
-              .from('client_documents')
-              .delete()
-              .eq('client_id', deleteClientId);
-              
-            if (docDeleteError) {
-              console.error("Error deleting client documents:", docDeleteError);
-            } else {
-              console.log(`Successfully deleted client documents`);
-            }
-            
-            // Delete files from storage if needed
-            if (docData.some(doc => doc.file_path)) {
-              const filePaths = docData.map(doc => doc.file_path).filter(Boolean);
-              try {
-                const { error: storageError } = await supabase.storage
-                  .from('client-documents')
-                  .remove(filePaths);
-                  
-                if (storageError) {
-                  console.error("Error deleting files from storage:", storageError);
-                }
-              } catch (storageErr) {
-                console.error("Exception deleting files from storage:", storageErr);
-              }
-            }
-          }
-        } catch (docErr) {
-          console.error("Exception deleting client documents:", docErr);
-        }
-        
-        // Step 4: Finally delete the client
-        const { error } = await supabase
-          .from('clients')
-          .delete()
-          .eq('id', deleteClientId);
-        
-        if (error) {
-          console.error("Error deleting client:", error);
-        } else {
-          console.log("Successfully deleted client from Supabase");
-        }
-        
-        // Always update local state to ensure client is removed from UI
-        deleteClient(deleteClientId);
-        setDeleteClientId(null);
-        
-        if (selectedClient?.id === deleteClientId) {
-          setSelectedClient(null);
-          setIsDetailView(false);
-        }
-      } catch (error) {
-        console.error("Error in client deletion process:", error);
-        
-        // Even if there's an error, still update local state
-        deleteClient(deleteClientId);
-        setDeleteClientId(null);
-        
-        if (selectedClient?.id === deleteClientId) {
-          setSelectedClient(null);
-          setIsDetailView(false);
-        }
-      } finally {
-        setIsLoading(false);
+    if (!selectedClient) return;
+    deleteClientMutation.mutate(selectedClient.$id);
+  };
+
+  const openCreateForm = () => {
+    // If connection isn't established, test it first
+    if (connectionStatus?.connected === false) {
+      testConnection();
+      if (!connectionStatus?.connected) {
+        toast.error("Cannot add clients while offline. Please check your connection.");
+        return;
       }
     }
-  };
-
-  const handleSelectClient = (client: ClientData) => {
-    setSelectedClient(client);
-    setIsDetailView(true);
-  };
-
-  const handleBackToList = () => {
+    
     setSelectedClient(null);
-    setIsDetailView(false);
+    setIsFormOpen(true);
   };
 
-  const filteredClients = clients.filter(client => 
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const openEditForm = (client: Client) => {
+    setSelectedClient(client);
+    setIsFormOpen(true);
+  };
 
-  if (isDetailView && selectedClient) {
+  const openDeleteDialog = (client: Client) => {
+    setSelectedClient(client);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const viewClientCases = (clientId: string) => {
+    navigate(`/clients/${clientId}/cases`);
+  };
+
+  const handleRetry = () => {
+    testConnection().then(() => {
+      if (connectionStatus?.connected) {
+        refetch();
+      }
+    });
+  };
+
+  // If there was a connection error
+  if (connectionStatus?.connected === false) {
     return (
-      <div className="w-full">
-        <div className={`flex ${isMobile ? 'flex-col' : 'flex-row sm:items-center'} justify-between mb-6`}>
-          <div>
-            <Button 
-              variant="outline" 
-              onClick={handleBackToList}
-              className="mb-2"
-            >
-              ← Back to Clients
-            </Button>
-            <h1 className="text-2xl font-bold">{selectedClient.name}</h1>
-          </div>
-          
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="text-destructive hover:bg-destructive/10 mt-2 sm:mt-0"
-                onClick={() => setDeleteClientId(selectedClient.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Client
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Client</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this client? This action will also remove all serve attempts, documents, and cases associated with this client. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setDeleteClientId(null)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDeleteClient}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Deleting..." : "Delete"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-        
-        <ClientDetail 
-          client={selectedClient} 
-          onUpdate={handleUpdateClient} 
+      <Layout>
+        <PageHeader
+          title="Clients"
+          description="Manage your clients and their cases."
+          action={{
+            label: "Check Connection",
+            onClick: handleRetry,
+            icon: <RefreshCw size={16} />,
+          }}
         />
-      </div>
+        <div className="bg-white rounded-md shadow p-6 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-red-600 mb-2">Connection Error</h3>
+          <p className="text-gray-600 mb-4">
+            {connectionStatus.message || "Could not connect to the database. Please check your network connection and Appwrite configuration."}
+          </p>
+          <Button 
+            onClick={handleRetry}
+            disabled={isTestingConnection}
+            className="mx-auto"
+          >
+            {isTestingConnection ? 'Testing Connection...' : 'Retry Connection'}
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  // If there was an error fetching clients
+  if (error && !isLoading) {
+    return (
+      <Layout>
+        <PageHeader
+          title="Clients"
+          description="Manage your clients and their cases."
+          action={{
+            label: "Retry",
+            onClick: () => refetch(),
+            icon: <RefreshCw size={16} />,
+          }}
+        />
+        <div className="bg-white rounded-md shadow p-6 text-center">
+          <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Clients</h3>
+          <p className="text-gray-600 mb-4">
+            {error instanceof Error ? error.message : "An unknown error occurred while loading clients."}
+          </p>
+          <Button onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Client Management</h1>
-        <p className="text-muted-foreground">
-          Add, edit, and manage your process serving clients
-        </p>
-      </div>
+    <Layout>
+      <PageHeader
+        title="Clients"
+        description="Manage your clients and their cases."
+        action={{
+          label: "Add Client",
+          onClick: openCreateForm,
+          icon: <Plus size={16} />,
+        }}
+      />
 
-      <div className={`flex ${isMobile ? 'flex-col' : 'flex-row sm:flex-row'} gap-4 justify-between mb-6`}>
-        <div className={`relative ${isMobile ? 'w-full' : 'w-72'}`}>
-          <Input
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="w-full h-10" />
+          <Skeleton className="w-full h-32" />
+          <Skeleton className="w-full h-32" />
         </div>
-        
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className={isMobile ? "w-[95%] max-w-md" : ""}>
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>
-                Enter client details to create a new record
-              </DialogDescription>
-            </DialogHeader>
-            <ClientForm onSubmit={handleAddClient} isLoading={isLoading} />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {clients.length === 0 ? (
-        <Card className="neo-card">
-          <CardContent className="pt-6 flex flex-col items-center justify-center text-center min-h-[200px]">
-            <div className="p-4 rounded-full bg-muted mb-4">
-              <Users className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-            <CardTitle className="mb-2">No clients added yet</CardTitle>
-            <CardDescription className="mb-4">
-              Add your first client to get started
-            </CardDescription>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </CardContent>
-        </Card>
+      ) : clients.length === 0 ? (
+        <EmptyState
+          title="No clients"
+          description="You haven't added any clients yet. Start by adding your first client."
+          action={{
+            label: "Add Client",
+            onClick: openCreateForm,
+          }}
+          icon={<Plus size={48} />}
+          className="h-[400px]"
+        />
       ) : (
-        <div className={`grid grid-cols-1 ${isMobile ? '' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
-          {filteredClients.map(client => (
-            <Card 
-              key={client.id} 
-              className="neo-card overflow-hidden animate-scale-in hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleSelectClient(client)}
-            >
-              <CardHeader className="pb-3">
-                <CardTitle className="flex justify-between items-center">
-                  <span className="truncate">{client.name}</span>
-                  <UserCheck className="h-5 w-5 text-muted-foreground" />
-                </CardTitle>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Email:</span>{" "}
-                    <a 
-                      href={`mailto:${client.email}`} 
-                      className="text-primary hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {client.email}
-                    </a>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Phone:</span>{" "}
-                    <a 
-                      href={`tel:${client.phone}`} 
-                      className="hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {client.phone}
-                    </a>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Address:</span>
-                    <div className="mt-1">{client.address}</div>
-                  </div>
-                  {client.notes && (
-                    <div className="pt-2">
-                      <span className="text-muted-foreground">Notes:</span>
-                      <div className="mt-1 text-muted-foreground line-clamp-2">{client.notes}</div>
+        <div className="bg-white rounded-md shadow-sm border animate-in">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead className="hidden md:table-cell">Address</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clients.map((client) => (
+                <TableRow key={client.$id}>
+                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell>{client.email}</TableCell>
+                  <TableCell>{client.phone || '-'}</TableCell>
+                  <TableCell className="hidden md:table-cell">{client.address || '-'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => viewClientCases(client.$id)}
+                        title="View Cases"
+                      >
+                        <Folder size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditForm(client)}
+                        title="Edit Client"
+                      >
+                        <Pencil size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDeleteDialog(client)}
+                        title="Delete Client"
+                      >
+                        <Trash size={16} />
+                      </Button>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
-    </div>
+
+      {/* Client Form Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedClient ? 'Edit Client' : 'Add New Client'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedClient 
+                ? "Update client details below." 
+                : "Fill in the client information below."}
+            </DialogDescription>
+          </DialogHeader>
+          <ClientForm
+            defaultValues={selectedClient || {}}
+            onSubmit={selectedClient ? handleUpdateClient : handleCreateClient}
+            isSubmitting={createClientMutation.isPending || updateClientMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the client and all associated cases and service attempts.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteClientMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteClient}
+              disabled={deleteClientMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteClientMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Layout>
   );
 };
 
