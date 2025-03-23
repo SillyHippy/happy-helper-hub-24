@@ -172,8 +172,50 @@ const Clients: React.FC<ClientsProps> = ({
 
   const handleDeleteClient = async () => {
     if (deleteClientId) {
+      setIsLoading(true);
       try {
-        // Delete from Supabase
+        // First, delete all serve attempts related to this client
+        const { error: serveError } = await supabase
+          .from('serve_attempts')
+          .delete()
+          .eq('client_id', deleteClientId);
+        
+        if (serveError) {
+          console.error("Error deleting related serve attempts:", serveError);
+          throw serveError;
+        }
+        
+        // Next, check for and delete client documents
+        try {
+          const { error: docError } = await supabase
+            .from('client_documents')
+            .delete()
+            .eq('client_id', deleteClientId);
+            
+          if (docError) {
+            console.error("Error deleting client documents:", docError);
+          }
+        } catch (docErr) {
+          console.error("Exception deleting client documents:", docErr);
+          // Continue deletion process even if document deletion fails
+        }
+        
+        // Then check for and delete client cases
+        try {
+          const { error: caseError } = await supabase
+            .from('client_cases')
+            .delete()
+            .eq('client_id', deleteClientId);
+            
+          if (caseError) {
+            console.error("Error deleting client cases:", caseError);
+          }
+        } catch (caseErr) {
+          console.error("Exception deleting client cases:", caseErr);
+          // Continue deletion process even if case deletion fails
+        }
+        
+        // Finally delete the client
         const { error } = await supabase
           .from('clients')
           .delete()
@@ -193,15 +235,17 @@ const Clients: React.FC<ClientsProps> = ({
         
         toast({
           title: "Client deleted",
-          description: "Client has been permanently removed.",
+          description: "Client and all related data have been permanently removed.",
         });
       } catch (error) {
         console.error("Error deleting client:", error);
         toast({
           title: "Error deleting client",
-          description: "There was a problem deleting the client.",
+          description: "There was a problem deleting the client and related data.",
           variant: "destructive"
         });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -253,16 +297,17 @@ const Clients: React.FC<ClientsProps> = ({
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Client</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete this client? This action cannot be undone.
+                  Are you sure you want to delete this client? This action will also remove all serve attempts, documents, and cases associated with this client. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setDeleteClientId(null)}>Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                   onClick={handleDeleteClient}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isLoading}
                 >
-                  Delete
+                  {isLoading ? "Deleting..." : "Delete"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
