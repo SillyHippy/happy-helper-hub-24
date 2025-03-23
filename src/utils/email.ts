@@ -68,14 +68,6 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
 
     console.log("Response from send-email function:", data);
     
-    // Handle test mode notification
-    if (data && data.testingMode) {
-      return {
-        success: true,
-        message: `Test mode: Email sent to owner (would go to ${to} in production) ${imageData ? 'with image attachment' : ''}`
-      };
-    }
-    
     return {
       success: true,
       message: `Email sent to ${to} ${imageData ? 'with image attachment' : ''}`
@@ -84,7 +76,7 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
     console.error("Exception in sendEmail function:", error);
     return {
       success: false,
-      message: "Failed to send email"
+      message: error instanceof Error ? error.message : "Failed to send email"
     };
   }
 };

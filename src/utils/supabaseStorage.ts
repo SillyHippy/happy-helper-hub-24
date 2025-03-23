@@ -207,6 +207,7 @@ export async function getClientCases(clientId: string): Promise<{ caseNumber: st
       .from('client_cases')
       .select('case_number, case_name')
       .eq('client_id', clientId)
+      .not('status', 'eq', 'Closed') // Exclude Closed cases
       .order('created_at', { ascending: false });
     
     if (error) {

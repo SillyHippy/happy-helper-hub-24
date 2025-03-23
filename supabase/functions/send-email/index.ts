@@ -49,20 +49,23 @@ serve(async (req) => {
 
     console.log("Attempting to send email with Resend...");
     
-    // Check if we're in testing mode without a verified domain
-    const ownerEmail = "iannazzi.joseph@gmail.com"; // The verified email from the error message
-    const testingMode = true; // Set to false when you've verified a domain
-
+    // Construct the "from" address based on domain verification status
+    const fromDomain = Deno.env.get("RESEND_VERIFIED_DOMAIN");
+    console.log(`RESEND_VERIFIED_DOMAIN value: "${fromDomain || 'not set'}"`);
+    
+    const fromAddress = fromDomain 
+      ? `ServeTracker <no-reply@${fromDomain}>` 
+      : "ServeTracker <onboarding@resend.dev>";
+    
+    console.log(`From address: ${fromAddress}`);
+    console.log(`To address: ${to}`);
+    
     // Send the email using Resend
     const emailResponse = await resend.emails.send({
-      from: testingMode ? 
-        "ServeTracker <onboarding@resend.dev>" : // Use Resend's default sender for testing
-        "ServeTracker <no-reply@your-verified-domain.com>", // Replace with your domain when verified
-      to: [testingMode ? ownerEmail : to], // In testing, always send to owner
-      subject: testingMode ? `[TEST] ${subject}` : subject,
-      text: testingMode ? 
-        `This is a test email. It would have been sent to: ${to}\n\n${emailBody}` : 
-        emailBody,
+      from: fromAddress,
+      to: [to],
+      subject: subject,
+      text: emailBody,
       attachments: attachments,
     });
 
@@ -76,11 +79,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: testingMode ? 
-          `Test email sent to ${ownerEmail} (would have gone to ${to})` : 
-          `Email sent to ${to}${imageData ? ' with image attachment' : ''}`,
-        id: emailResponse.id,
-        testingMode: testingMode
+        message: `Email sent to ${to}${imageData ? ' with image attachment' : ''}`,
+        id: emailResponse.id
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

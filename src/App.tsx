@@ -14,8 +14,14 @@ import History from "./pages/History";
 import Layout from "./components/Layout";
 import { ClientData } from "./components/ClientForm";
 import { ServeAttemptData } from "./components/ServeAttempt";
-import { supabase } from "./lib/supabase";
+import { 
+  supabase, 
+  setupRealtimeSubscription, 
+  syncLocalServesToSupabase, 
+  syncSupabaseServesToLocal 
+} from "./lib/supabase";
 import { useToast } from "./hooks/use-toast";
+import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -23,7 +29,7 @@ const queryClient = new QueryClient();
 const AnimatedRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   
   const [clients, setClients] = useState<ClientData[]>(() => {
     const savedClients = localStorage.getItem("serve-tracker-clients");
@@ -37,10 +43,73 @@ const AnimatedRoutes = () => {
     return savedServes ? JSON.parse(savedServes) : [];
   });
 
+  const [isInitialSync, setIsInitialSync] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Setup realtime subscription for serve attempts
+  useEffect(() => {
+    const cleanupSubscription = setupRealtimeSubscription();
+    return () => cleanupSubscription();
+  }, []);
+
+  // Initial sync from Supabase to local when app loads
+  useEffect(() => {
+    const performInitialSync = async () => {
+      if (isInitialSync) {
+        setIsSyncing(true);
+        try {
+          console.log("Performing initial sync from Supabase to local storage");
+          
+          // First sync any missing local serves to Supabase
+          await syncLocalServesToSupabase();
+          
+          // Then sync any missing Supabase serves to local
+          const mergedServes = await syncSupabaseServesToLocal();
+          if (mergedServes && mergedServes.length > 0) {
+            setServes(mergedServes);
+            toast("Data synchronized", {
+              description: "Serve data has been synced between your devices"
+            });
+          }
+          
+          setIsInitialSync(false);
+        } catch (error) {
+          console.error("Error during initial sync:", error);
+          toast("Sync error", {
+            description: "There was an error syncing data. Some information may be out of date."
+          });
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    };
+    
+    performInitialSync();
+  }, [isInitialSync]);
+
+  // Force re-sync when page becomes visible again (user returns to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Page became visible, triggering re-sync");
+        setIsInitialSync(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // Fetch all clients from Supabase to ensure we have the most up-to-date data
   useEffect(() => {
     const fetchClients = async () => {
       try {
+        // First get existing local clients
+        const localClientsJSON = localStorage.getItem("serve-tracker-clients");
+        const localClients = localClientsJSON ? JSON.parse(localClientsJSON) : [];
+        const localClientIds = new Set(localClients.map(client => client.id));
+        
+        // Fetch clients from Supabase
         const { data, error } = await supabase
           .from('clients')
           .select('*');
@@ -50,22 +119,60 @@ const AnimatedRoutes = () => {
         }
         
         if (data && data.length > 0) {
-          // Update local clients with Supabase data
-          const clientsData = data as ClientData[];
+          // Merge Supabase clients with local clients
+          const mergedClients = [...localClients];
+          let hasNewClients = false;
           
-          // Only update local storage if there's a difference
-          const localClientsJSON = JSON.stringify(clientsData);
-          const currentClientsJSON = localStorage.getItem("serve-tracker-clients");
+          for (const supabaseClient of data) {
+            if (!localClientIds.has(supabaseClient.id)) {
+              // This is a new client from Supabase
+              mergedClients.push(supabaseClient);
+              hasNewClients = true;
+            }
+          }
           
-          if (localClientsJSON !== currentClientsJSON) {
-            localStorage.setItem("serve-tracker-clients", localClientsJSON);
-            setClients(clientsData);
-            console.log("Updated clients from Supabase:", clientsData);
+          // Only update state and localStorage if we have new clients
+          if (hasNewClients) {
+            localStorage.setItem("serve-tracker-clients", JSON.stringify(mergedClients));
+            setClients(mergedClients);
+            console.log("Merged clients from Supabase with local clients:", mergedClients);
+            
+            // Notify user of new clients
+            toast("Clients synchronized", {
+              description: "New client data has been synced from the cloud"
+            });
+          }
+        }
+        
+        // Also sync local clients to Supabase
+        for (const client of localClients) {
+          const { data: existingClient, error: checkError } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('id', client.id)
+            .maybeSingle();
+            
+          if (checkError) {
+            console.error("Error checking if client exists:", checkError);
+            continue;
+          }
+          
+          if (!existingClient) {
+            // Client doesn't exist in Supabase, insert it
+            const { error: insertError } = await supabase
+              .from('clients')
+              .insert(client);
+              
+            if (insertError) {
+              console.error("Error inserting client to Supabase:", insertError);
+            } else {
+              console.log(`Successfully synced client ${client.id} to Supabase`);
+            }
           }
         }
       } catch (error) {
         console.error("Error fetching clients from Supabase:", error);
-        toast({
+        uiToast({
           title: "Error syncing clients",
           description: "Unable to sync with the database. Some client data may be outdated.",
           variant: "destructive"
@@ -74,61 +181,6 @@ const AnimatedRoutes = () => {
     };
     
     fetchClients();
-  }, []);
-
-  // Fetch serve attempts if the table exists in Supabase
-  useEffect(() => {
-    const fetchServes = async () => {
-      try {
-        // Check if the serve_attempts table exists by attempting to query it
-        const { data, error } = await supabase
-          .from('serve_attempts')
-          .select('*')
-          .limit(1);
-        
-        if (error) {
-          // If table doesn't exist, we'll use localStorage only
-          console.log("serve_attempts table not found, using localStorage only");
-          return;
-        }
-        
-        // If we get here, the table exists, so fetch all serve attempts
-        const { data: allServes, error: fetchError } = await supabase
-          .from('serve_attempts')
-          .select('*')
-          .order('timestamp', { ascending: false });
-          
-        if (fetchError) {
-          throw fetchError;
-        }
-        
-        if (allServes && allServes.length > 0) {
-          console.log("Fetched serve attempts from Supabase:", allServes);
-          
-          // Convert to ServeAttemptData format
-          const formattedServes = allServes.map((serve: any) => ({
-            id: serve.id,
-            clientId: serve.client_id,
-            caseNumber: serve.case_number,
-            status: serve.status,
-            notes: serve.notes,
-            coordinates: serve.coordinates,
-            timestamp: serve.timestamp,
-            imageData: serve.image_data,
-            attemptNumber: serve.attempt_number
-          }));
-          
-          // Update local storage and state
-          localStorage.setItem("serve-tracker-serves", JSON.stringify(formattedServes));
-          setServes(formattedServes);
-        }
-      } catch (error) {
-        console.error("Error fetching serve attempts:", error);
-        // Fall back to localStorage data
-      }
-    };
-    
-    fetchServes();
   }, []);
 
   // Persist data to localStorage when it changes
@@ -142,14 +194,55 @@ const AnimatedRoutes = () => {
   }, [serves]);
 
   // Client CRUD operations
-  const addClient = (client: ClientData) => {
+  const addClient = async (client: ClientData) => {
+    // Update local state first for immediate feedback
     setClients([...clients, client]);
+    
+    // Then try to save to Supabase
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .insert(client);
+        
+      if (error) {
+        console.error("Error saving client to Supabase:", error);
+        toast("Sync warning", {
+          description: "Client saved locally but couldn't sync to cloud. It will sync later.",
+          duration: 5000
+        });
+      } else {
+        console.log("Successfully saved client to Supabase:", client);
+      }
+    } catch (error) {
+      console.error("Exception saving client:", error);
+    }
   };
 
-  const updateClient = (updatedClient: ClientData) => {
+  const updateClient = async (updatedClient: ClientData) => {
+    // Update local state
     setClients(clients.map(client => 
       client.id === updatedClient.id ? updatedClient : client
     ));
+    
+    // Then update in Supabase
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update(updatedClient)
+        .eq('id', updatedClient.id);
+        
+      if (error) {
+        console.error("Error updating client in Supabase:", error);
+        toast("Sync warning", {
+          description: "Client updated locally but couldn't sync to cloud. It will sync later.",
+          duration: 5000
+        });
+      } else {
+        console.log("Successfully updated client in Supabase:", updatedClient);
+      }
+    } catch (error) {
+      console.error("Exception updating client:", error);
+    }
   };
 
   const deleteClient = async (clientId: string) => {
@@ -168,13 +261,13 @@ const AnimatedRoutes = () => {
       // Also remove any serves associated with this client
       setServes(serves.filter(serve => serve.clientId !== clientId));
       
-      toast({
+      uiToast({
         title: "Client deleted",
         description: "Client has been permanently removed.",
       });
     } catch (error) {
       console.error("Error deleting client:", error);
-      toast({
+      uiToast({
         title: "Error deleting client",
         description: "There was a problem deleting the client. Please try again.",
         variant: "destructive"
@@ -187,10 +280,14 @@ const AnimatedRoutes = () => {
     console.log("Adding new serve:", serve);
     const newServe = {
       ...serve,
-      id: `serve-${Date.now()}`,
+      id: serve.id || `serve-${Date.now()}`,
     };
     
-    // Try to save to Supabase first if serve_attempts table exists
+    // Update local state first for immediate feedback
+    setServes([newServe, ...serves]);
+    console.log("Updated serves array, new length:", serves.length + 1);
+    
+    // Try to save to Supabase
     try {
       const { data, error } = await supabase
         .from('serve_attempts')
@@ -208,17 +305,21 @@ const AnimatedRoutes = () => {
         .select();
       
       if (error) {
-        console.error("Error saving serve attempt to Supabase, falling back to localStorage:", error);
+        console.error("Error saving serve attempt to Supabase:", error);
+        toast("Sync warning", {
+          description: "Serve saved locally but couldn't sync to cloud. It will sync later.",
+          duration: 5000
+        });
       } else {
         console.log("Successfully saved serve attempt to Supabase:", data);
+        toast("Serve synced", {
+          description: "Serve attempt saved and synced to cloud",
+          duration: 3000
+        });
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
     }
-    
-    // Always update local state regardless of Supabase result
-    setServes([newServe, ...serves]);
-    console.log("Updated serves array, new length:", serves.length + 1);
   };
 
   // Parse URL query parameters on new serve page

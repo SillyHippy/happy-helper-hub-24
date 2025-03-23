@@ -130,6 +130,50 @@ export type Database = {
         }
         Relationships: []
       }
+      serve_attempts: {
+        Row: {
+          attempt_number: number | null
+          case_number: string | null
+          client_id: string
+          coordinates: Json | null
+          id: string
+          image_data: string | null
+          notes: string | null
+          status: string
+          timestamp: string
+        }
+        Insert: {
+          attempt_number?: number | null
+          case_number?: string | null
+          client_id: string
+          coordinates?: Json | null
+          id: string
+          image_data?: string | null
+          notes?: string | null
+          status: string
+          timestamp?: string
+        }
+        Update: {
+          attempt_number?: number | null
+          case_number?: string | null
+          client_id?: string
+          coordinates?: Json | null
+          id?: string
+          image_data?: string | null
+          notes?: string | null
+          status?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serve_attempts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

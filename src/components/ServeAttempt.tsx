@@ -109,7 +109,7 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
         const { data, error } = await supabase
           .from('client_cases')
           .select('case_number, case_name, home_address, work_address, client_id, clients(name)')
-          .eq('status', 'Active')
+          // Show all cases regardless of status - no status filter
           .order('created_at', { ascending: false });
         
         if (error) {
@@ -163,7 +163,7 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
             .from('client_cases')
             .select('case_number, case_name, home_address, work_address')
             .eq('client_id', selectedClient.id)
-            .eq('status', 'Active')
+            // Show all cases regardless of status - no status filter
             .order('created_at', { ascending: false });
           
           if (error) {
@@ -196,7 +196,6 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
     }
   }, [selectedClient]);
 
-  // Update attempt count when case is selected
   useEffect(() => {
     const updateAttemptCount = async () => {
       if (selectedClient?.id && selectedCase?.caseNumber) {
@@ -255,7 +254,6 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
     setSelectedCase(caseItem);
     form.setValue("caseNumber", caseNumber);
     
-    // Update attempt count for this specific case
     if (selectedClient?.id) {
       const count = await getServeAttemptsCount(selectedClient.id, caseNumber);
       setCaseAttemptCount(count);
@@ -276,7 +274,6 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
     if (caseItem.clientId) {
       form.setValue("clientId", caseItem.clientId);
       
-      // Update attempt count for this specific case
       const count = await getServeAttemptsCount(
         caseItem.clientId, 
         caseItem.caseNumber
@@ -330,7 +327,7 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
         notes: data.notes || "",
         timestamp: new Date(),
         status: data.status,
-        attemptNumber: caseAttemptCount + 1, // Use case-specific attempt count
+        attemptNumber: caseAttemptCount + 1,
       };
 
       const emailBody = createServeEmailBody(
