@@ -1,4 +1,3 @@
-
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface EmailProps {
@@ -36,6 +35,14 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
   try {
     console.log("Preparing to call Supabase Edge Function 'send-email'");
     
+    // Validate email format
+    if (!to || !to.includes('@')) {
+      return {
+        success: false,
+        message: `Invalid recipient email address: ${to}`
+      };
+    }
+    
     // Prepare image data for transmission
     // Remove the data URL prefix if present
     const processedImageData = imageData ? imageData.replace(/^data:image\/(png|jpeg|jpg);base64,/, '') : undefined;
@@ -68,7 +75,7 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
     
     return {
       success: true,
-      message: `Email sent to ${to} ${imageData ? 'with image attachment' : ''}`
+      message: data.message || `Email sent to ${to}${imageData ? ' with image attachment' : ''}`
     };
   } catch (error) {
     console.error("Exception in sendEmail function:", error);
