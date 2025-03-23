@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, Pencil, Trash2, UserCheck } from "lucide-react";
@@ -30,9 +31,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
+import { toast as sonnerToast } from "sonner";
 
 interface ClientsProps {
   clients: ClientData[];
@@ -53,7 +54,7 @@ const Clients: React.FC<ClientsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [isDetailView, setIsDetailView] = useState(false);
-  const { toast: uiToast } = useToast();
+  const { toast } = useToast();
 
   useEffect(() => {
     const syncClients = async () => {
@@ -112,12 +113,21 @@ const Clients: React.FC<ClientsProps> = ({
       addClient(newClient);
       setIsAddDialogOpen(false);
       
+      sonnerToast("Client added", {
+        description: "New client has been successfully added."
+      });
+      
       toast({
         title: "Client added",
         description: "New client has been successfully added.",
       });
     } catch (error) {
       console.error("Error adding client:", error);
+      sonnerToast("Error adding client", {
+        description: "There was a problem adding the client.",
+        variant: "destructive"
+      });
+      
       toast({
         title: "Error adding client",
         description: "There was a problem adding the client.",
@@ -147,12 +157,21 @@ const Clients: React.FC<ClientsProps> = ({
       
       updateClient(client);
       
+      sonnerToast("Client updated", {
+        description: "Client information has been updated."
+      });
+      
       toast({
         title: "Client updated",
         description: "Client information has been updated.",
       });
     } catch (error) {
       console.error("Error updating client:", error);
+      sonnerToast("Error updating client", {
+        description: "There was a problem updating the client.",
+        variant: "destructive"
+      });
+      
       toast({
         title: "Error updating client",
         description: "There was a problem updating the client.",
@@ -270,20 +289,21 @@ const Clients: React.FC<ClientsProps> = ({
           setIsDetailView(false);
         }
         
-        toast("Client deleted", {
+        sonnerToast("Client deleted", {
           description: "Client and all related data have been permanently removed."
         });
         
-        uiToast({
+        toast({
           title: "Client deleted",
           description: "Client and all related data have been permanently removed.",
         });
       } catch (error) {
         console.error("Error deleting client:", error);
-        toast("Error deleting client", {
-          description: "There was a problem deleting the client. Please try again.",
+        sonnerToast("Error deleting client", {
+          description: "There was a problem deleting the client. Please try again."
         });
-        uiToast({
+        
+        toast({
           title: "Error deleting client",
           description: "There was a problem deleting the client and related data.",
           variant: "destructive"
