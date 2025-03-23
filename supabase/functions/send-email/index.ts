@@ -49,16 +49,22 @@ serve(async (req) => {
 
     console.log("Attempting to send email with Resend...");
     
-    // Construct the "from" address based on domain verification status
+    // Get the verified domain from environment variables
     const fromDomain = Deno.env.get("RESEND_VERIFIED_DOMAIN");
     console.log(`RESEND_VERIFIED_DOMAIN value: "${fromDomain || 'not set'}"`);
     
+    // Construct the "from" address based on domain verification status
     const fromAddress = fromDomain 
       ? `ServeTracker <no-reply@${fromDomain}>` 
       : "ServeTracker <onboarding@resend.dev>";
     
     console.log(`From address: ${fromAddress}`);
     console.log(`To address: ${to}`);
+    
+    // Validate email format
+    if (!to || !to.includes('@')) {
+      throw new Error(`Invalid recipient email address: ${to}`);
+    }
     
     // Send the email using Resend
     const emailResponse = await resend.emails.send({

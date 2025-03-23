@@ -26,12 +26,10 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
   
   // Check if Supabase is properly configured
   if (!isSupabaseConfigured()) {
-    console.warn("Supabase is not configured. Email sending is in simulation mode.");
-    // Simulate API call delay for development
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.error("Supabase is not configured. Email sending will fail.");
     return {
-      success: true,
-      message: `[SIMULATED] Email would be sent to ${to} ${imageData ? 'with image attachment' : 'without image'}`
+      success: false,
+      message: "Supabase is not configured. Cannot send email."
     };
   }
   
