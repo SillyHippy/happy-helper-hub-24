@@ -49,24 +49,17 @@ serve(async (req) => {
 
     console.log("Attempting to send email with Resend...");
     
-    // Get the verified domain from environment variables
-    const fromDomain = Deno.env.get("RESEND_VERIFIED_DOMAIN");
-    if (!fromDomain) {
-      throw new Error("RESEND_VERIFIED_DOMAIN is not set. Please set this value in your Supabase Edge Function secrets.");
-    }
-    
-    console.log(`Using verified domain: ${fromDomain}`);
-    
     // Validate email format
     if (!to || !to.includes('@')) {
       throw new Error(`Invalid recipient email address: ${to}`);
     }
     
-    // Construct the from address with the verified domain
-    const fromAddress = `ServeTracker <no-reply@${fromDomain}>`;
+    // Use domain directly from environment or from your actual domain
+    const domainName = "justlegalsolutions.tech";
+    const fromAddress = `ServeTracker <no-reply@${domainName}>`;
     console.log(`Using from address: ${fromAddress}`);
     
-    // Send the email using Resend API with the verified domain as the from address
+    // Send the email using Resend API
     const emailResponse = await resend.emails.send({
       from: fromAddress,
       to: [to],
