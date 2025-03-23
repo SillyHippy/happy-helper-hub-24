@@ -1,5 +1,6 @@
 
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { toast } from "sonner";
 
 interface EmailProps {
   to: string;
@@ -27,6 +28,9 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
   // Check if Supabase is properly configured
   if (!isSupabaseConfigured()) {
     console.error("Supabase is not configured. Email sending will fail.");
+    toast.error("Supabase is not configured", {
+      description: "Cannot send email without proper configuration."
+    });
     return {
       success: false,
       message: "Supabase is not configured. Cannot send email."
@@ -38,6 +42,9 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
     
     // Validate email format
     if (!to || !to.includes('@')) {
+      toast.error("Invalid email address", {
+        description: `Cannot send to: ${to}`
+      });
       return {
         success: false,
         message: `Invalid recipient email address: ${to}`
@@ -66,6 +73,9 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
 
     if (error) {
       console.error("Error calling send-email function:", error);
+      toast.error("Failed to send email", {
+        description: error.message || "Please check your network connection"
+      });
       return {
         success: false,
         message: error.message || "Failed to send email"
@@ -73,6 +83,9 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
     }
 
     console.log("Response from send-email function:", data);
+    toast.success("Email sent successfully", {
+      description: `Email sent to ${to}${imageData ? ' with image attachment' : ''}`
+    });
     
     return {
       success: true,
@@ -80,6 +93,9 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
     };
   } catch (error) {
     console.error("Exception in sendEmail function:", error);
+    toast.error("Failed to send email", {
+      description: error instanceof Error ? error.message : "Unknown error"
+    });
     return {
       success: false,
       message: error instanceof Error ? error.message : "Failed to send email"

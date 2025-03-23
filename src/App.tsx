@@ -18,8 +18,10 @@ import {
   supabase, 
   setupRealtimeSubscription, 
   syncLocalServesToSupabase, 
-  syncSupabaseServesToLocal 
+  syncSupabaseServesToLocal,
+  deleteServeAttempt
 } from "./lib/supabase";
+import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +45,11 @@ const AnimatedRoutes = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    return () => {};
+    const cleanupSubscription = setupRealtimeSubscription();
+    
+    return () => {
+      cleanupSubscription();
+    };
   }, []);
 
   useEffect(() => {
@@ -53,33 +59,22 @@ const AnimatedRoutes = () => {
         try {
           console.log("Performing initial sync from Supabase to local storage");
           
-          const { data: supabaseServes, error } = await supabase
-            .from('serve_attempts')
-            .select('*')
-            .order('timestamp', { ascending: false });
-            
-          if (error) {
-            console.error("Error fetching serve attempts:", error);
-          } else if (supabaseServes && supabaseServes.length > 0) {
-            const formattedServes = supabaseServes.map(serve => ({
-              id: serve.id,
-              clientId: serve.client_id,
-              caseNumber: serve.case_number,
-              status: serve.status,
-              notes: serve.notes,
-              coordinates: serve.coordinates,
-              timestamp: serve.timestamp,
-              imageData: serve.image_data,
-              attemptNumber: serve.attempt_number
-            }));
-            
-            localStorage.setItem("serve-tracker-serves", JSON.stringify(formattedServes));
-            setServes(formattedServes);
+          const supabaseServes = await syncSupabaseServesToLocal();
+          
+          if (supabaseServes && supabaseServes.length > 0) {
+            setServes(supabaseServes);
+            console.log(`Synced ${supabaseServes.length} serves from Supabase`);
+            toast.success(`Synced ${supabaseServes.length} records from database`);
+          } else {
+            setServes([]);
+            localStorage.setItem("serve-tracker-serves", JSON.stringify([]));
+            console.log("No serves in Supabase, cleared local storage");
           }
           
           setIsInitialSync(false);
         } catch (error) {
           console.error("Error during initial sync:", error);
+          toast.error("Failed to sync with database");
         } finally {
           setIsSyncing(false);
         }
@@ -90,7 +85,22 @@ const AnimatedRoutes = () => {
   }, [isInitialSync]);
 
   useEffect(() => {
-    return () => {};
+    const syncInterval = setInterval(async () => {
+      try {
+        console.log("Running periodic sync...");
+        const supabaseServes = await syncSupabaseServesToLocal();
+        if (supabaseServes) {
+          setServes(supabaseServes);
+          console.log(`Periodic sync: updated with ${supabaseServes.length} serves from Supabase`);
+        }
+      } catch (error) {
+        console.error("Error during periodic sync:", error);
+      }
+    }, 10000); // Sync every 10 seconds
+    
+    return () => {
+      clearInterval(syncInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -107,9 +117,15 @@ const AnimatedRoutes = () => {
         if (data && data.length > 0) {
           localStorage.setItem("serve-tracker-clients", JSON.stringify(data));
           setClients(data);
+          console.log(`Loaded ${data.length} clients from Supabase`);
+        } else {
+          setClients([]);
+          localStorage.setItem("serve-tracker-clients", JSON.stringify([]));
+          console.log("No clients in Supabase, cleared local storage");
         }
       } catch (error) {
         console.error("Error fetching clients from Supabase:", error);
+        toast.error("Failed to load clients from database");
       }
     };
     
@@ -126,8 +142,6 @@ const AnimatedRoutes = () => {
   }, [serves]);
 
   const addClient = async (client: ClientData) => {
-    setClients([...clients, client]);
-    
     try {
       const { error } = await supabase
         .from('clients')
@@ -135,19 +149,21 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error saving client to Supabase:", error);
+        toast.error("Failed to save client to database", {
+          description: error.message
+        });
       } else {
         console.log("Successfully saved client to Supabase:", client);
+        toast.success("Client saved successfully");
+        setClients([...clients, client]);
       }
     } catch (error) {
       console.error("Exception saving client:", error);
+      toast.error("An unexpected error occurred");
     }
   };
 
   const updateClient = async (updatedClient: ClientData) => {
-    setClients(clients.map(client => 
-      client.id === updatedClient.id ? updatedClient : client
-    ));
-    
     try {
       const { error } = await supabase
         .from('clients')
@@ -156,11 +172,19 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error updating client in Supabase:", error);
+        toast.error("Failed to update client in database", {
+          description: error.message
+        });
       } else {
         console.log("Successfully updated client in Supabase:", updatedClient);
+        toast.success("Client updated successfully");
+        setClients(clients.map(client => 
+          client.id === updatedClient.id ? updatedClient : client
+        ));
       }
     } catch (error) {
       console.error("Exception updating client:", error);
+      toast.error("An unexpected error occurred");
     }
   };
 
@@ -168,18 +192,81 @@ const AnimatedRoutes = () => {
     try {
       console.log("Deleting client with ID:", clientId);
       
+      const { data: serveData, error: serveError } = await supabase
+        .from('serve_attempts')
+        .select('id')
+        .eq('client_id', clientId);
+
+      if (serveError) {
+        console.error("Error finding serve attempts for client:", serveError);
+      } else if (serveData && serveData.length > 0) {
+        console.log(`Found ${serveData.length} serve attempts to delete`);
+        for (const serve of serveData) {
+          await deleteServeAttempt(serve.id);
+        }
+        console.log("Successfully deleted client serve attempts");
+      }
+      
+      const { error: casesError } = await supabase
+        .from('client_cases')
+        .delete()
+        .eq('client_id', clientId);
+        
+      if (casesError) {
+        console.error("Error deleting client cases:", casesError);
+      } else {
+        console.log("Successfully deleted client cases");
+      }
+      
+      const { data: docsData, error: docsError } = await supabase
+        .from('client_documents')
+        .select('id, file_path')
+        .eq('client_id', clientId);
+        
+      if (docsError) {
+        console.error("Error finding client documents:", docsError);
+      } else if (docsData && docsData.length > 0) {
+        for (const doc of docsData) {
+          if (doc.file_path) {
+            await supabase.storage
+              .from('client-documents')
+              .remove([doc.file_path]);
+          }
+          
+          await supabase
+            .from('client_documents')
+            .delete()
+            .eq('id', doc.id);
+        }
+        console.log("Successfully deleted client documents");
+      }
+      
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+        
+      if (error) {
+        console.error("Error deleting client from Supabase:", error);
+        toast.error("Failed to delete client from database", {
+          description: error.message
+        });
+        return false;
+      }
+      
       const updatedClients = clients.filter(client => client.id !== clientId);
       setClients(updatedClients);
       
-      const updatedServes = serves.filter(serve => serve.clientId !== clientId);
-      setServes(updatedServes);
-      
-      localStorage.setItem("serve-tracker-clients", JSON.stringify(updatedClients));
-      localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
+      const updatedServes = await syncSupabaseServesToLocal();
+      setServes(updatedServes || []);
       
       console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
+      toast.success("Client deleted successfully");
+      return true;
     } catch (error) {
       console.error("Error updating local state after client deletion:", error);
+      toast.error("An unexpected error occurred");
+      return false;
     }
   };
 
@@ -190,15 +277,7 @@ const AnimatedRoutes = () => {
       id: serve.id || `serve-${Date.now()}`,
     };
     
-    setServes(prevServes => [newServe, ...prevServes]);
-    
     try {
-      const savedServes = localStorage.getItem("serve-tracker-serves");
-      const parsedServes = savedServes ? JSON.parse(savedServes) : [];
-      localStorage.setItem("serve-tracker-serves", JSON.stringify([newServe, ...parsedServes]));
-      
-      console.log("Updated serves array, new length:", serves.length + 1);
-      
       const { data, error } = await supabase
         .from('serve_attempts')
         .insert({
@@ -216,11 +295,24 @@ const AnimatedRoutes = () => {
       
       if (error) {
         console.error("Error saving serve attempt to Supabase:", error);
+        toast.error("Failed to save serve attempt to database", {
+          description: error.message
+        });
       } else {
         console.log("Successfully saved serve attempt to Supabase:", data);
+        toast.success("Serve attempt saved successfully");
+        
+        const supabaseServes = await syncSupabaseServesToLocal();
+        if (supabaseServes && supabaseServes.length > 0) {
+          setServes(supabaseServes);
+        } else {
+          setServes(prevServes => [newServe, ...prevServes]);
+        }
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
+      toast.error("An unexpected error occurred");
+      setServes(prevServes => [newServe, ...prevServes]);
     }
   };
 
@@ -228,10 +320,17 @@ const AnimatedRoutes = () => {
     try {
       console.log("Removing serve attempt from state:", serveId);
       
-      const updatedServes = serves.filter(serve => serve.id !== serveId);
-      setServes(updatedServes);
+      const result = await deleteServeAttempt(serveId);
       
-      localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
+      if (!result.success) {
+        console.error("Error deleting serve attempt:", result.error);
+        toast.error("Failed to delete record", {
+          description: result.error || "Please try again"
+        });
+        return false;
+      }
+      
+      setServes(serves.filter(serve => serve.id !== serveId));
       
       return true;
     } catch (error) {

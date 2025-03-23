@@ -64,8 +64,8 @@ export type Database = {
           description: string | null
           file_name: string
           file_path: string
-          file_size: number
-          file_type: string
+          file_size: number | null
+          file_type: string | null
           id: string
           updated_at: string
         }
@@ -76,8 +76,8 @@ export type Database = {
           description?: string | null
           file_name: string
           file_path: string
-          file_size: number
-          file_type: string
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           updated_at?: string
         }
@@ -88,8 +88,8 @@ export type Database = {
           description?: string | null
           file_name?: string
           file_path?: string
-          file_size?: number
-          file_type?: string
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           updated_at?: string
         }
@@ -105,35 +105,38 @@ export type Database = {
       }
       clients: {
         Row: {
-          address: string
-          email: string
+          address: string | null
+          created_at: string
+          email: string | null
           id: string
           name: string
           notes: string | null
-          phone: string
+          phone: string | null
         }
         Insert: {
-          address: string
-          email: string
+          address?: string | null
+          created_at?: string
+          email?: string | null
           id: string
           name: string
           notes?: string | null
-          phone: string
+          phone?: string | null
         }
         Update: {
-          address?: string
-          email?: string
+          address?: string | null
+          created_at?: string
+          email?: string | null
           id?: string
           name?: string
           notes?: string | null
-          phone?: string
+          phone?: string | null
         }
         Relationships: []
       }
       serve_attempts: {
         Row: {
           attempt_number: number | null
-          case_number: string | null
+          case_number: string
           client_id: string
           coordinates: Json | null
           id: string
@@ -144,7 +147,7 @@ export type Database = {
         }
         Insert: {
           attempt_number?: number | null
-          case_number?: string | null
+          case_number: string
           client_id: string
           coordinates?: Json | null
           id: string
@@ -155,7 +158,7 @@ export type Database = {
         }
         Update: {
           attempt_number?: number | null
-          case_number?: string | null
+          case_number?: string
           client_id?: string
           coordinates?: Json | null
           id?: string

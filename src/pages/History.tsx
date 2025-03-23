@@ -14,6 +14,9 @@ import { ClientData } from "@/components/ClientForm";
 import { ServeAttemptData } from "@/components/ServeAttempt";
 import ServeHistory from "@/components/ServeHistory";
 import { Clock, ClipboardList, Search } from "lucide-react";
+import { syncSupabaseServesToLocal } from "@/lib/supabase";
+import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HistoryProps {
   serves: ServeAttemptData[];
@@ -28,7 +31,27 @@ const History: React.FC<HistoryProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredServes, setFilteredServes] = useState<ServeAttemptData[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  // Force sync on component mount
+  useEffect(() => {
+    const refreshData = async () => {
+      try {
+        setIsRefreshing(true);
+        await syncSupabaseServesToLocal();
+        toast.success("Data refreshed from server");
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+        toast.error("Failed to refresh data");
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+    
+    refreshData();
+  }, []);
 
   useEffect(() => {
     console.log("History component serves:", serves);
@@ -57,8 +80,21 @@ const History: React.FC<HistoryProps> = ({
     console.log(`Navigating to new serve with clientId=${clientId}, caseNumber=${caseNumber}, previousAttempts=${previousAttempts}`);
   };
 
+  const handleManualRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await syncSupabaseServesToLocal();
+      toast.success("Data refreshed from server");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
-    <div className="page-container">
+    <div className="w-full">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Serve History</h1>
         <p className="text-muted-foreground">
@@ -66,8 +102,8 @@ const History: React.FC<HistoryProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+      <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} justify-between gap-4 mb-8`}>
+        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}>
           <Card className="neo-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -101,16 +137,25 @@ const History: React.FC<HistoryProps> = ({
           </Card>
         </div>
 
-        <div className="relative min-w-[240px]">
-          <Input
-            placeholder="Search serves..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <Search className="w-4 h-4" />
+        <div className="flex flex-col gap-2 min-w-[240px]">
+          <div className="relative">
+            <Input
+              placeholder="Search serves..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Search className="w-4 h-4" />
+            </div>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh Data"}
+          </Button>
         </div>
       </div>
 

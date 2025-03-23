@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
 // Initialize Resend with the API key
-const resendApiKey = Deno.env.get("RESEND_API_KEY");
+const resendApiKey = Deno.env.get("RESEND_API_KEY") || "re_H7aEgUba_CX6KU75oGvVLw1pZUMSCtteB";
 console.log("Resend API Key configured:", resendApiKey ? "YES (length: " + resendApiKey.length + ")" : "NO");
 const resend = new Resend(resendApiKey);
 
@@ -54,7 +54,7 @@ serve(async (req) => {
       throw new Error(`Invalid recipient email address: ${to}`);
     }
     
-    // Use domain directly from environment or from your actual domain
+    // Use verified domain
     const domainName = "justlegalsolutions.tech";
     const fromAddress = `ServeTracker <no-reply@${domainName}>`;
     console.log(`Using from address: ${fromAddress}`);

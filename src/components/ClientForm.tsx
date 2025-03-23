@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { 
   Card,
   CardContent,
@@ -22,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { v4 as uuidv4 } from "uuid";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface ClientData {
   id?: string;
@@ -51,6 +53,8 @@ const ClientForm: React.FC<ClientFormProps> = ({
   initialData,
   isLoading = false
 }) => {
+  const isMobile = useIsMobile();
+  
   const defaultValues: ClientData = initialData || {
     name: "",
     email: "",
@@ -65,14 +69,19 @@ const ClientForm: React.FC<ClientFormProps> = ({
   });
 
   const handleSubmit = (data: ClientData) => {
-    onSubmit({
-      ...data,
-      id: initialData?.id
-    });
+    // If creating a new client, generate a unique ID
+    // Make sure we're using a stable ID system to prevent duplicates
+    if (!initialData?.id) {
+      data.id = `client-${uuidv4()}`;
+    } else {
+      data.id = initialData.id;
+    }
+    
+    onSubmit(data);
   };
 
   return (
-    <Card className="neo-card w-full max-w-md mx-auto animate-scale-in">
+    <Card className={`neo-card w-full ${isMobile ? "" : "max-w-md mx-auto"} animate-scale-in`}>
       <CardHeader>
         <CardTitle>{initialData ? "Edit Client" : "Add New Client"}</CardTitle>
         <CardDescription>
