@@ -1,5 +1,7 @@
+
 import { supabase } from "@/lib/supabase";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
 const STORAGE_BUCKET = "client-documents";
 
@@ -173,6 +175,8 @@ export async function getDocumentUrl(filePath: string): Promise<string | null> {
 
 export async function deleteClientDocument(id: string, filePath: string): Promise<boolean> {
   try {
+    console.log(`Attempting to delete document with ID: ${id} and filePath: ${filePath}`);
+    
     // Delete from storage first
     const { error: storageError } = await supabase.storage
       .from(STORAGE_BUCKET)
@@ -180,7 +184,11 @@ export async function deleteClientDocument(id: string, filePath: string): Promis
     
     if (storageError) {
       console.error("Error deleting document from storage:", storageError);
-      return false;
+      // Continue to delete the database record even if storage deletion fails
+      // This prevents orphaned records if file is already gone
+      console.log("Continuing to delete database record despite storage error");
+    } else {
+      console.log("Successfully deleted file from storage");
     }
     
     // Then delete the database record
@@ -191,12 +199,22 @@ export async function deleteClientDocument(id: string, filePath: string): Promis
     
     if (dbError) {
       console.error("Error deleting document record:", dbError);
+      toast("Error deleting document", {
+        description: "Document record could not be deleted. Please try again."
+      });
       return false;
     }
     
+    console.log("Successfully deleted document record from database");
+    toast("Document deleted", {
+      description: "Document has been permanently removed."
+    });
     return true;
   } catch (error) {
     console.error("Unexpected error deleting document:", error);
+    toast("Error deleting document", {
+      description: "An unexpected error occurred. Please try again."
+    });
     return false;
   }
 }
