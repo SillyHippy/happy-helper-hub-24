@@ -123,9 +123,9 @@ const Clients: React.FC<ClientsProps> = ({
       });
     } catch (error) {
       console.error("Error adding client:", error);
-      sonnerToast("Error adding client", {
-        description: "There was a problem adding the client.",
-        variant: "destructive"
+      // Fix: Using sonnerToast.error() instead of variant
+      sonnerToast.error("Error adding client", {
+        description: "There was a problem adding the client."
       });
       
       toast({
@@ -167,9 +167,9 @@ const Clients: React.FC<ClientsProps> = ({
       });
     } catch (error) {
       console.error("Error updating client:", error);
-      sonnerToast("Error updating client", {
-        description: "There was a problem updating the client.",
-        variant: "destructive"
+      // Fix: Using sonnerToast.error() instead of variant
+      sonnerToast.error("Error updating client", {
+        description: "There was a problem updating the client."
       });
       
       toast({
