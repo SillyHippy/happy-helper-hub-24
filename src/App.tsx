@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -21,15 +20,12 @@ import {
   syncLocalServesToSupabase, 
   syncSupabaseServesToLocal 
 } from "./lib/supabase";
-import { useToast } from "./hooks/use-toast";
-import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
 const AnimatedRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { toast: uiToast } = useToast();
   
   const [clients, setClients] = useState<ClientData[]>(() => {
     const savedClients = localStorage.getItem("serve-tracker-clients");
@@ -47,8 +43,7 @@ const AnimatedRoutes = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const cleanupSubscription = setupRealtimeSubscription();
-    return () => cleanupSubscription();
+    return () => {};
   }, []);
 
   useEffect(() => {
@@ -58,22 +53,33 @@ const AnimatedRoutes = () => {
         try {
           console.log("Performing initial sync from Supabase to local storage");
           
-          await syncLocalServesToSupabase();
-          
-          const mergedServes = await syncSupabaseServesToLocal();
-          if (mergedServes && mergedServes.length > 0) {
-            setServes(mergedServes);
-            toast("Data synchronized", {
-              description: "Serve data has been synced between your devices"
-            });
+          const { data: supabaseServes, error } = await supabase
+            .from('serve_attempts')
+            .select('*')
+            .order('timestamp', { ascending: false });
+            
+          if (error) {
+            console.error("Error fetching serve attempts:", error);
+          } else if (supabaseServes && supabaseServes.length > 0) {
+            const formattedServes = supabaseServes.map(serve => ({
+              id: serve.id,
+              clientId: serve.client_id,
+              caseNumber: serve.case_number,
+              status: serve.status,
+              notes: serve.notes,
+              coordinates: serve.coordinates,
+              timestamp: serve.timestamp,
+              imageData: serve.image_data,
+              attemptNumber: serve.attempt_number
+            }));
+            
+            localStorage.setItem("serve-tracker-serves", JSON.stringify(formattedServes));
+            setServes(formattedServes);
           }
           
           setIsInitialSync(false);
         } catch (error) {
           console.error("Error during initial sync:", error);
-          toast("Sync error", {
-            description: "There was an error syncing data. Some information may be out of date."
-          });
         } finally {
           setIsSyncing(false);
         }
@@ -84,24 +90,12 @@ const AnimatedRoutes = () => {
   }, [isInitialSync]);
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log("Page became visible, triggering re-sync");
-        setIsInitialSync(true);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {};
   }, []);
 
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const localClientsJSON = localStorage.getItem("serve-tracker-clients");
-        const localClients = localClientsJSON ? JSON.parse(localClientsJSON) : [];
-        const localClientIds = new Set(localClients.map(client => client.id));
-        
         const { data, error } = await supabase
           .from('clients')
           .select('*');
@@ -111,58 +105,11 @@ const AnimatedRoutes = () => {
         }
         
         if (data && data.length > 0) {
-          const mergedClients = [...localClients];
-          let hasNewClients = false;
-          
-          for (const supabaseClient of data) {
-            if (!localClientIds.has(supabaseClient.id)) {
-              mergedClients.push(supabaseClient);
-              hasNewClients = true;
-            }
-          }
-          
-          if (hasNewClients) {
-            localStorage.setItem("serve-tracker-clients", JSON.stringify(mergedClients));
-            setClients(mergedClients);
-            console.log("Merged clients from Supabase with local clients:", mergedClients);
-            
-            toast("Clients synchronized", {
-              description: "New client data has been synced from the cloud"
-            });
-          }
-        }
-        
-        for (const client of localClients) {
-          const { data: existingClient, error: checkError } = await supabase
-            .from('clients')
-            .select('id')
-            .eq('id', client.id)
-            .maybeSingle();
-            
-          if (checkError) {
-            console.error("Error checking if client exists:", checkError);
-            continue;
-          }
-          
-          if (!existingClient) {
-            const { error: insertError } = await supabase
-              .from('clients')
-              .insert(client);
-              
-            if (insertError) {
-              console.error("Error inserting client to Supabase:", insertError);
-            } else {
-              console.log(`Successfully synced client ${client.id} to Supabase`);
-            }
-          }
+          localStorage.setItem("serve-tracker-clients", JSON.stringify(data));
+          setClients(data);
         }
       } catch (error) {
         console.error("Error fetching clients from Supabase:", error);
-        uiToast({
-          title: "Error syncing clients",
-          description: "Unable to sync with the database. Some client data may be outdated.",
-          variant: "destructive"
-        });
       }
     };
     
@@ -188,10 +135,6 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error saving client to Supabase:", error);
-        toast("Sync warning", {
-          description: "Client saved locally but couldn't sync to cloud. It will sync later.",
-          duration: 5000
-        });
       } else {
         console.log("Successfully saved client to Supabase:", client);
       }
@@ -213,10 +156,6 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error updating client in Supabase:", error);
-        toast("Sync warning", {
-          description: "Client updated locally but couldn't sync to cloud. It will sync later.",
-          duration: 5000
-        });
       } else {
         console.log("Successfully updated client in Supabase:", updatedClient);
       }
@@ -239,18 +178,8 @@ const AnimatedRoutes = () => {
       localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
       
       console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
-      
-      uiToast({
-        title: "Client deleted",
-        description: "Client has been permanently removed."
-      });
     } catch (error) {
       console.error("Error updating local state after client deletion:", error);
-      uiToast({
-        title: "Error updating UI",
-        description: "There was a problem updating the UI after deletion. Please refresh the page.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -287,16 +216,8 @@ const AnimatedRoutes = () => {
       
       if (error) {
         console.error("Error saving serve attempt to Supabase:", error);
-        toast("Sync warning", {
-          description: "Serve saved locally but couldn't sync to cloud. It will sync later.",
-          duration: 5000
-        });
       } else {
         console.log("Successfully saved serve attempt to Supabase:", data);
-        toast("Serve synced", {
-          description: "Serve attempt saved and synced to cloud",
-          duration: 3000
-        });
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);

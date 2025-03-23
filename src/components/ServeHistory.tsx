@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, Mail, Edit2, Trash2, Plus, FileCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +61,7 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
   console.log("Grouped serves structure:", Object.keys(groupedServes).length, "clients,", 
     Object.values(groupedServes).reduce((sum, cases) => sum + Object.keys(cases).length, 0), "cases");
   
-  const handleDeleteServe = async (serveId: string, clientId: string, caseNumber: string, clientEmail: string) => {
+  const handleDeleteServe = async (serveId: string, clientId: string, caseNumber: string) => {
     setIsDeleting(true);
     
     try {
@@ -76,69 +75,12 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
       
       if (error) {
         console.error("Error deleting serve attempt from Supabase:", error);
-        toast.error("Error deleting serve attempt", {
-          description: "There was a problem deleting this serve attempt. Please try again."
-        });
-        return;
       }
       
-      // Find the serve to get its details for the email
-      const serveToDelete = serves.find(s => s.id === serveId);
-      
-      // Find the client to get their details for the email
-      const client = clients.find(c => c.id === clientId);
-      
-      if (serveToDelete && client) {
-        // Send email notification
-        const emailTo = client.email;
-        const subject = `Serve Attempt Deleted - Case #${caseNumber}`;
-        
-        // Format the date nicely
-        const serveDate = new Date(serveToDelete.timestamp);
-        const formattedDate = serveDate.toLocaleDateString() + ', ' + serveDate.toLocaleTimeString();
-        
-        // Create email body
-        let body = `A serve attempt for case #${caseNumber} has been deleted.\n\n`;
-        body += `Client: ${client.name}\n`;
-        body += `Address: ${client.address}\n`;
-        body += `Date: ${formattedDate}\n`;
-        body += `Status: ${serveToDelete.status}\n`;
-        
-        if (deleteNote) {
-          body += `\nNote: ${deleteNote}\n`;
-        }
-        
-        body += `\nThis is an automated notification from ServeTracker.`;
-        
-        console.log("Sending email:", { to: emailTo, subject });
-        
-        // Send the email
-        try {
-          const { data, error } = await supabase.functions.invoke('send-email', {
-            body: { to: emailTo, subject, body }
-          });
-          
-          if (error) {
-            console.error("Error sending email:", error);
-          } else {
-            console.log("Response from send-email function:", data);
-            toast.success("Notification email sent", {
-              description: `Email notification sent to ${emailTo}`
-            });
-          }
-        } catch (emailError) {
-          console.error("Exception sending email:", emailError);
-        }
-      }
-      
-      // Update local state through the onDelete callback
+      // Even if Supabase fails, still delete from local to prevent reappearance
       if (onDelete) {
         const success = await onDelete(serveId);
         if (success) {
-          toast.success("Serve attempt deleted", {
-            description: "The serve attempt has been permanently removed."
-          });
-          
           setDeleteNote('');
           setDeletingServeId(null);
           setIsDeleteDialogOpen(false);
@@ -146,9 +88,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
       }
     } catch (error) {
       console.error("Unexpected error deleting serve attempt:", error);
-      toast.error("Error", {
-        description: "An unexpected error occurred. Please try again."
-      });
     } finally {
       setIsDeleting(false);
     }
@@ -242,8 +181,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                            
-                            {/* Add more action buttons as needed */}
                           </div>
                         </div>
                         
@@ -315,18 +252,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4">
-            <label className="text-sm font-medium mb-2 block">
-              Add a note for the email notification (optional):
-            </label>
-            <Textarea
-              placeholder="Reason for deletion..."
-              value={deleteNote}
-              onChange={(e) => setDeleteNote(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          
           <DialogFooter>
             <Button
               variant="outline"
@@ -345,10 +270,7 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
                 if (deletingServeId) {
                   const serve = serves.find(s => s.id === deletingServeId);
                   if (serve) {
-                    const client = clients.find(c => c.id === serve.clientId);
-                    if (client) {
-                      handleDeleteServe(deletingServeId, serve.clientId, serve.caseNumber || 'Unknown', client.email);
-                    }
+                    handleDeleteServe(deletingServeId, serve.clientId, serve.caseNumber || 'Unknown');
                   }
                 }
               }}

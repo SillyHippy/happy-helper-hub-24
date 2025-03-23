@@ -14,7 +14,6 @@ import { ClientData } from "@/components/ClientForm";
 import { ServeAttemptData } from "@/components/ServeAttempt";
 import ServeHistory from "@/components/ServeHistory";
 import { Clock, ClipboardList, Search } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface HistoryProps {
   serves: ServeAttemptData[];
@@ -30,7 +29,6 @@ const History: React.FC<HistoryProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredServes, setFilteredServes] = useState<ServeAttemptData[]>([]);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     console.log("History component serves:", serves);

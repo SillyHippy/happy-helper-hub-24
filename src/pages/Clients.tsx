@@ -34,7 +34,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { toast as sonnerToast } from "sonner";
 
 interface ClientsProps {
   clients: ClientData[];
@@ -55,51 +54,6 @@ const Clients: React.FC<ClientsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [isDetailView, setIsDetailView] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const syncClients = async () => {
-      if (clients.length > 0) {
-        for (const client of clients) {
-          if (client.id) {
-            try {
-              const { data, error } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('id', client.id)
-                .maybeSingle();
-              
-              if (error) {
-                console.error("Error checking client existence:", error);
-                continue;
-              }
-              
-              if (!data) {
-                const { error: insertError } = await supabase
-                  .from('clients')
-                  .insert({
-                    id: client.id,
-                    name: client.name,
-                    email: client.email,
-                    phone: client.phone,
-                    address: client.address,
-                    notes: client.notes
-                  });
-                  
-                if (insertError) {
-                  console.error("Error inserting client:", insertError);
-                }
-              }
-            } catch (err) {
-              console.error("Exception during client sync:", err);
-            }
-          }
-        }
-      }
-    };
-    
-    syncClients();
-  }, [clients]);
 
   const handleAddClient = async (client: ClientData) => {
     setIsLoading(true);
@@ -126,26 +80,8 @@ const Clients: React.FC<ClientsProps> = ({
       
       addClient(newClient);
       setIsAddDialogOpen(false);
-      
-      sonnerToast("Client added", {
-        description: "New client has been successfully added."
-      });
-      
-      toast({
-        title: "Client added",
-        description: "New client has been successfully added.",
-      });
     } catch (error) {
       console.error("Error adding client:", error);
-      sonnerToast.error("Error adding client", {
-        description: "There was a problem adding the client."
-      });
-      
-      toast({
-        title: "Error adding client",
-        description: "There was a problem adding the client.",
-        variant: "destructive"
-      });
     } finally {
       setIsLoading(false);
     }
@@ -169,26 +105,8 @@ const Clients: React.FC<ClientsProps> = ({
       if (error) throw error;
       
       updateClient(client);
-      
-      sonnerToast("Client updated", {
-        description: "Client information has been updated."
-      });
-      
-      toast({
-        title: "Client updated",
-        description: "Client information has been updated.",
-      });
     } catch (error) {
       console.error("Error updating client:", error);
-      sonnerToast.error("Error updating client", {
-        description: "There was a problem updating the client."
-      });
-      
-      toast({
-        title: "Error updating client",
-        description: "There was a problem updating the client.",
-        variant: "destructive"
-      });
     } finally {
       setIsLoading(false);
     }
@@ -200,11 +118,11 @@ const Clients: React.FC<ClientsProps> = ({
       try {
         console.log("Deleting client with ID:", deleteClientId);
         
-        // Step 1: Fetch all serve attempts for this client
+        // Step 1: Delete all serve attempts for this client from Supabase
         try {
           const { data: serveData, error: serveQueryError } = await supabase
             .from('serve_attempts')
-            .select('id, client_id, case_number')
+            .select('id')
             .eq('client_id', deleteClientId);
             
           if (serveQueryError) {
@@ -212,78 +130,23 @@ const Clients: React.FC<ClientsProps> = ({
           } else if (serveData && serveData.length > 0) {
             console.log(`Found ${serveData.length} serve attempts to delete`);
             
-            // Delete each serve attempt individually to avoid potential transaction issues
-            for (const serve of serveData) {
-              const { error: deleteServeError } = await supabase
-                .from('serve_attempts')
-                .delete()
-                .eq('id', serve.id);
-                
-              if (deleteServeError) {
-                console.error(`Error deleting serve attempt ${serve.id}:`, deleteServeError);
-              } else {
-                console.log(`Successfully deleted serve attempt ${serve.id}`);
-              }
-            }
-            
-            // Update local storage to remove deleted serve attempts
-            const savedServes = localStorage.getItem("serve-tracker-serves");
-            if (savedServes) {
-              const parsedServes = JSON.parse(savedServes);
-              const updatedServes = parsedServes.filter((serve: any) => serve.clientId !== deleteClientId);
-              localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
-              console.log(`Updated localStorage: removed ${parsedServes.length - updatedServes.length} serve attempts`);
+            // Delete all serve attempts in one operation
+            const { error: deleteServeError } = await supabase
+              .from('serve_attempts')
+              .delete()
+              .eq('client_id', deleteClientId);
+              
+            if (deleteServeError) {
+              console.error("Error deleting serve attempts:", deleteServeError);
+            } else {
+              console.log(`Successfully deleted all serve attempts for client ${deleteClientId}`);
             }
           }
         } catch (serveErr) {
           console.error("Exception handling serve attempts deletion:", serveErr);
         }
         
-        // Step 2: Handle client documents
-        try {
-          const { data: docData, error: docQueryError } = await supabase
-            .from('client_documents')
-            .select('id, file_path')
-            .eq('client_id', deleteClientId);
-            
-          if (docQueryError) {
-            console.error("Error querying client documents:", docQueryError);
-          } else if (docData && docData.length > 0) {
-            console.log(`Found ${docData.length} documents to delete`);
-            
-            // Delete files from storage
-            const filePaths = docData.map(doc => doc.file_path).filter(Boolean);
-            if (filePaths.length > 0) {
-              const { error: storageError } = await supabase.storage
-                .from('client-documents')
-                .remove(filePaths);
-                
-              if (storageError) {
-                console.error("Error deleting files from storage:", storageError);
-              } else {
-                console.log(`Successfully deleted ${filePaths.length} files from storage`);
-              }
-            }
-            
-            // Delete document records
-            for (const doc of docData) {
-              const { error: docDeleteError } = await supabase
-                .from('client_documents')
-                .delete()
-                .eq('id', doc.id);
-                
-              if (docDeleteError) {
-                console.error(`Error deleting document ${doc.id}:`, docDeleteError);
-              } else {
-                console.log(`Successfully deleted document ${doc.id}`);
-              }
-            }
-          }
-        } catch (docErr) {
-          console.error("Exception deleting client documents:", docErr);
-        }
-        
-        // Step 3: Delete client cases
+        // Step 2: Delete any client cases
         try {
           const { error: caseError } = await supabase
             .from('client_cases')
@@ -299,6 +162,48 @@ const Clients: React.FC<ClientsProps> = ({
           console.error("Exception deleting client cases:", caseErr);
         }
         
+        // Step 3: Delete any client documents
+        try {
+          const { data: docData, error: docQueryError } = await supabase
+            .from('client_documents')
+            .select('id, file_path')
+            .eq('client_id', deleteClientId);
+            
+          if (docQueryError) {
+            console.error("Error querying client documents:", docQueryError);
+          } else if (docData && docData.length > 0) {
+            // Delete document records
+            const { error: docDeleteError } = await supabase
+              .from('client_documents')
+              .delete()
+              .eq('client_id', deleteClientId);
+              
+            if (docDeleteError) {
+              console.error("Error deleting client documents:", docDeleteError);
+            } else {
+              console.log(`Successfully deleted client documents`);
+            }
+            
+            // Delete files from storage if needed
+            if (docData.some(doc => doc.file_path)) {
+              const filePaths = docData.map(doc => doc.file_path).filter(Boolean);
+              try {
+                const { error: storageError } = await supabase.storage
+                  .from('client-documents')
+                  .remove(filePaths);
+                  
+                if (storageError) {
+                  console.error("Error deleting files from storage:", storageError);
+                }
+              } catch (storageErr) {
+                console.error("Exception deleting files from storage:", storageErr);
+              }
+            }
+          }
+        } catch (docErr) {
+          console.error("Exception deleting client documents:", docErr);
+        }
+        
         // Step 4: Finally delete the client
         const { error } = await supabase
           .from('clients')
@@ -307,13 +212,11 @@ const Clients: React.FC<ClientsProps> = ({
         
         if (error) {
           console.error("Error deleting client:", error);
-          // Continue with local deletion even if Supabase deletion failed
-          console.log("Supabase client deletion failed, but proceeding with local state update");
         } else {
           console.log("Successfully deleted client from Supabase");
         }
         
-        // Update local state regardless of Supabase result
+        // Always update local state to ensure client is removed from UI
         deleteClient(deleteClientId);
         setDeleteClientId(null);
         
@@ -321,26 +224,17 @@ const Clients: React.FC<ClientsProps> = ({
           setSelectedClient(null);
           setIsDetailView(false);
         }
-        
-        sonnerToast("Client deleted", {
-          description: "Client and all related data have been permanently removed."
-        });
-        
-        toast({
-          title: "Client deleted",
-          description: "Client and all related data have been permanently removed.",
-        });
       } catch (error) {
         console.error("Error in client deletion process:", error);
-        sonnerToast.error("Error deleting client", {
-          description: "There was a problem deleting the client. Please try again."
-        });
         
-        toast({
-          title: "Error deleting client",
-          description: "There was a problem deleting the client and related data.",
-          variant: "destructive"
-        });
+        // Even if there's an error, still update local state
+        deleteClient(deleteClientId);
+        setDeleteClientId(null);
+        
+        if (selectedClient?.id === deleteClientId) {
+          setSelectedClient(null);
+          setIsDetailView(false);
+        }
       } finally {
         setIsLoading(false);
       }
