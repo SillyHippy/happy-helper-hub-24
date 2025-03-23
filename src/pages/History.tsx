@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -13,14 +14,19 @@ import { ClientData } from "@/components/ClientForm";
 import { ServeAttemptData } from "@/components/ServeAttempt";
 import ServeHistory from "@/components/ServeHistory";
 import { Clock, ClipboardList, Search } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface HistoryProps {
   serves: ServeAttemptData[];
   clients: ClientData[];
+  deleteServe?: (serveId: string) => Promise<boolean>;
 }
 
-const History: React.FC<HistoryProps> = ({ serves, clients }) => {
+const History: React.FC<HistoryProps> = ({ 
+  serves, 
+  clients,
+  deleteServe
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredServes, setFilteredServes] = useState<ServeAttemptData[]>([]);
   const navigate = useNavigate();
@@ -144,6 +150,7 @@ const History: React.FC<HistoryProps> = ({ serves, clients }) => {
           serves={filteredServes} 
           clients={clients} 
           onNewAttempt={handleNewAttempt}
+          onDelete={deleteServe}
         />
       )}
     </div>

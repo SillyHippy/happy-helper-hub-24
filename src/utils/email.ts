@@ -1,3 +1,4 @@
+
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface EmailProps {
@@ -110,6 +111,55 @@ Location Link: ${googleMapsUrl}
 
 Notes:
 ${notes}
+
+---
+This is an automated message from ServeTracker.
+  `;
+};
+
+/**
+ * Creates a notification email for serve attempt deletion
+ */
+export const createDeleteNotificationEmail = (
+  clientName: string,
+  caseNumber: string,
+  serveDate: Date,
+  deleteReason?: string
+): string => {
+  return `
+Serve Attempt Deleted
+
+Client: ${clientName}
+Case: ${caseNumber}
+Original Serve Date: ${serveDate.toLocaleString()}
+${deleteReason ? `\nReason for deletion: ${deleteReason}\n` : ''}
+
+This serve attempt has been permanently removed from the system.
+
+---
+This is an automated message from ServeTracker.
+  `;
+};
+
+/**
+ * Creates a notification email for serve attempt updates
+ */
+export const createUpdateNotificationEmail = (
+  clientName: string,
+  caseNumber: string,
+  serveDate: Date,
+  oldStatus: string,
+  newStatus: string,
+  notes?: string
+): string => {
+  return `
+Serve Attempt Updated
+
+Client: ${clientName}
+Case: ${caseNumber}
+Serve Date: ${serveDate.toLocaleString()}
+Status: Changed from "${oldStatus}" to "${newStatus}"
+${notes ? `\nNotes: ${notes}\n` : ''}
 
 ---
 This is an automated message from ServeTracker.

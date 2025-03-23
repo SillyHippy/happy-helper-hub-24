@@ -178,17 +178,20 @@ export async function deleteClientDocument(id: string, filePath: string): Promis
     console.log(`Attempting to delete document with ID: ${id} and filePath: ${filePath}`);
     
     // Delete from storage first
-    const { error: storageError } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .remove([filePath]);
-    
-    if (storageError) {
-      console.error("Error deleting document from storage:", storageError);
-      // Continue to delete the database record even if storage deletion fails
-      // This prevents orphaned records if file is already gone
-      console.log("Continuing to delete database record despite storage error");
+    if (filePath) {
+      const { error: storageError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([filePath]);
+      
+      if (storageError) {
+        console.error("Error deleting document from storage:", storageError);
+        // Continue to delete the database record even if storage deletion fails
+        console.log("Continuing to delete database record despite storage error");
+      } else {
+        console.log("Successfully deleted file from storage");
+      }
     } else {
-      console.log("Successfully deleted file from storage");
+      console.log("No file path provided, skipping storage deletion");
     }
     
     // Then delete the database record
@@ -209,6 +212,7 @@ export async function deleteClientDocument(id: string, filePath: string): Promis
     toast("Document deleted", {
       description: "Document has been permanently removed."
     });
+    
     return true;
   } catch (error) {
     console.error("Unexpected error deleting document:", error);

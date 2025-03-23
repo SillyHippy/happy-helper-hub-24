@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -228,14 +229,20 @@ const AnimatedRoutes = () => {
     try {
       console.log("Deleting client with ID:", clientId);
       
-      setClients(clients.filter(client => client.id !== clientId));
+      const updatedClients = clients.filter(client => client.id !== clientId);
+      setClients(updatedClients);
       
       const updatedServes = serves.filter(serve => serve.clientId !== clientId);
       setServes(updatedServes);
       
+      localStorage.setItem("serve-tracker-clients", JSON.stringify(updatedClients));
+      localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
+      
+      console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
+      
       uiToast({
         title: "Client deleted",
-        description: "Client has been permanently removed.",
+        description: "Client has been permanently removed."
       });
     } catch (error) {
       console.error("Error updating local state after client deletion:", error);
@@ -254,10 +261,15 @@ const AnimatedRoutes = () => {
       id: serve.id || `serve-${Date.now()}`,
     };
     
-    setServes([newServe, ...serves]);
-    console.log("Updated serves array, new length:", serves.length + 1);
+    setServes(prevServes => [newServe, ...prevServes]);
     
     try {
+      const savedServes = localStorage.getItem("serve-tracker-serves");
+      const parsedServes = savedServes ? JSON.parse(savedServes) : [];
+      localStorage.setItem("serve-tracker-serves", JSON.stringify([newServe, ...parsedServes]));
+      
+      console.log("Updated serves array, new length:", serves.length + 1);
+      
       const { data, error } = await supabase
         .from('serve_attempts')
         .insert({
@@ -288,6 +300,22 @@ const AnimatedRoutes = () => {
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
+    }
+  };
+
+  const deleteServe = async (serveId: string) => {
+    try {
+      console.log("Removing serve attempt from state:", serveId);
+      
+      const updatedServes = serves.filter(serve => serve.id !== serveId);
+      setServes(updatedServes);
+      
+      localStorage.setItem("serve-tracker-serves", JSON.stringify(updatedServes));
+      
+      return true;
+    } catch (error) {
+      console.error("Error removing serve attempt from state:", error);
+      return false;
     }
   };
 
@@ -325,7 +353,13 @@ const AnimatedRoutes = () => {
                 deleteClient={deleteClient}
               />
             } />
-            <Route path="history" element={<History serves={serves} clients={clients} />} />
+            <Route path="history" element={
+              <History 
+                serves={serves} 
+                clients={clients} 
+                deleteServe={deleteServe}
+              />
+            } />
             <Route path="export" element={<DataExport />} />
             <Route path="*" element={<NotFound />} />
           </Route>
