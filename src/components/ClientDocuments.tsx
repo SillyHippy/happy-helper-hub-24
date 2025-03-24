@@ -48,6 +48,7 @@ import {
   type UploadedDocument 
 } from "@/utils/supabaseStorage";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ClientDocumentsProps {
   clientId: string;
@@ -66,6 +67,7 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     if (clientId) {
@@ -121,6 +123,9 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
       return;
     }
 
+    // Prevent double uploads on mobile by disabling the button immediately
+    if (isUploading) return;
+    
     setIsUploading(true);
     
     try {
@@ -143,6 +148,12 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
         }
         setDescription("");
         setUploadDialogOpen(false);
+        
+        // Clear the file input to prevent reselection on mobile
+        const fileInput = document.getElementById('file') as HTMLInputElement;
+        if (fileInput) {
+          fileInput.value = '';
+        }
         
         // Call the optional success callback
         if (onUploadSuccess) {
@@ -258,6 +269,11 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
             onChange={handleFileChange}
             required
             className="cursor-pointer"
+            onClick={isMobile ? (e) => {
+              // Ensures a fresh file selection dialog on mobile devices
+              const target = e.target as HTMLInputElement;
+              target.value = '';
+            } : undefined}
           />
           {selectedFile && (
             <p className="text-xs text-muted-foreground">
@@ -311,7 +327,11 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={isUploading || !selectedFile}>
+          <Button 
+            type="submit" 
+            disabled={isUploading || !selectedFile}
+            className={isUploading ? "opacity-50 cursor-not-allowed" : ""}
+          >
             {isUploading ? "Uploading..." : "Upload"}
           </Button>
         </div>
