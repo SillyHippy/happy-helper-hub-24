@@ -16,7 +16,8 @@ import {
   MapPin, 
   FileText,
   Briefcase,
-  Upload
+  Upload,
+  ArrowLeft
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import ClientForm from "./ClientForm";
@@ -32,9 +33,10 @@ import { uploadClientDocument } from "@/utils/supabaseStorage";
 interface ClientDetailProps {
   client: ClientData;
   onUpdate: (client: ClientData) => void;
+  onBack?: () => void;
 }
 
-export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
+export default function ClientDetail({ client, onUpdate, onBack }: ClientDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -141,15 +143,28 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
   );
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex justify-between items-center mb-4">
-          <TabsList>
+    <div className="space-y-6 w-full overflow-y-auto">
+      {/* Back button always visible on mobile */}
+      {onBack && (
+        <Button 
+          variant="outline" 
+          onClick={onBack}
+          className="mb-4 md:hidden flex items-center"
+          size="sm"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+      )}
+      
+      <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+          <TabsList className="h-auto">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="cases">Cases & Documents</TabsTrigger>
           </TabsList>
           
-          <div className="flex">
+          <div className="flex flex-wrap gap-2">
             {activeTab === "details" && (
               <>
                 <Dialog open={isEditing} onOpenChange={setIsEditing}>
@@ -159,7 +174,7 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                       Edit Client
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto">
                     <ClientForm
                       onSubmit={handleUpdateClient}
                       initialData={client}
@@ -173,7 +188,7 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
         </div>
         
         <TabsContent value="details" className="mt-0">
-          <Card className="neo-card">
+          <Card className="neo-card overflow-hidden">
             <CardHeader>
               <CardTitle>Client Information</CardTitle>
               <CardDescription>
@@ -183,17 +198,17 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium">{client.name}</div>
+                    <div className="font-medium break-words">{client.name}</div>
                     <div className="text-sm text-muted-foreground">Full Name</div>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <div>
+                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="w-full">
+                    <div className="break-words">
                       <a href={`mailto:${client.email}`} className="text-primary hover:underline">
                         {client.email}
                       </a>
@@ -205,11 +220,11 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                 {/* Display Additional Emails */}
                 {client.additionalEmails && client.additionalEmails.length > 0 && (
                   <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <div className="w-full">
                       <div className="space-y-1">
                         {client.additionalEmails.map((email, index) => (
-                          <div key={index}>
+                          <div key={index} className="break-words">
                             <a href={`mailto:${email}`} className="text-primary hover:underline">
                               {email}
                             </a>
@@ -222,7 +237,7 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                 )}
                 
                 <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
                     <div>
                       <a href={`tel:${client.phone}`} className="hover:underline">
@@ -234,18 +249,18 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                 </div>
                 
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <div className="whitespace-pre-wrap">{client.address}</div>
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="w-full">
+                    <div className="whitespace-pre-wrap break-words">{client.address}</div>
                     <div className="text-sm text-muted-foreground">Address</div>
                   </div>
                 </div>
                 
                 {client.notes && (
                   <div className="flex items-start gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <div className="whitespace-pre-wrap">{client.notes}</div>
+                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="w-full">
+                      <div className="whitespace-pre-wrap break-words">{client.notes}</div>
                       <div className="text-sm text-muted-foreground">Notes</div>
                     </div>
                   </div>

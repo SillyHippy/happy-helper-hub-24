@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ServeAttemptData } from "./ServeAttempt";
 import { sendEmail, createUpdateNotificationEmail } from "@/utils/email";
 import { supabase } from "@/lib/supabase";
@@ -37,7 +38,7 @@ const statusOptions = [
 
 const statusDisplayMap: Record<string, string> = {
   "completed": "Served",
-  "failed": "No Answer",
+  "failed": "Failed Attempt",
 };
 
 export default function EditServeDialog({ serve, open, onOpenChange, onSave }: EditServeDialogProps) {
@@ -47,6 +48,13 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
   const [isSaving, setIsSaving] = useState(false);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string>("Client");
+
+  // Reset form values when serve prop changes
+  useEffect(() => {
+    setStatus(serve.status);
+    setCaseNumber(serve.caseNumber || "");
+    setNotes(serve.notes || "");
+  }, [serve]);
 
   useEffect(() => {
     const fetchClientEmail = async () => {
@@ -78,6 +86,8 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
     
     setIsSaving(true);
     try {
+      console.log("Saving serve with status:", status);
+      
       const updatedServe: ServeAttemptData = {
         ...serve,
         status,
@@ -86,6 +96,8 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
       };
       
       const success = await onSave(updatedServe);
+      console.log("Save result:", success, "Updated serve:", updatedServe);
+      
       if (success) {
         if (clientEmail && serve.status !== status) {
           try {
@@ -131,7 +143,7 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Serve Attempt</DialogTitle>
           <DialogDescription>
@@ -139,47 +151,49 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={status}
-              onValueChange={(value: "completed" | "failed") => setStatus(value)}
-            >
-              <SelectTrigger id="status">
-                <SelectValue placeholder="Select a status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {statusDisplayMap[option]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <ScrollArea className="max-h-[60vh] pr-4 -mr-4">
+          <div className="space-y-4 py-4 px-1">
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value: "completed" | "failed") => setStatus(value)}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {statusDisplayMap[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="caseNumber">Case Number</Label>
+              <Input
+                id="caseNumber"
+                value={caseNumber}
+                onChange={(e) => setCaseNumber(e.target.value)}
+                placeholder="Enter case number"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Enter any notes about this serve attempt"
+                rows={4}
+              />
+            </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="caseNumber">Case Number</Label>
-            <Input
-              id="caseNumber"
-              value={caseNumber}
-              onChange={(e) => setCaseNumber(e.target.value)}
-              placeholder="Enter case number"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Enter any notes about this serve attempt"
-              rows={4}
-            />
-          </div>
-        </div>
+        </ScrollArea>
         
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>

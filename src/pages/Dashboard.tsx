@@ -22,8 +22,9 @@ import {
 import { ServeAttemptData } from "@/components/ServeAttempt";
 import { ClientData } from "@/components/ClientForm";
 import ServeHistory from "@/components/ServeHistory";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EditServeDialog from "@/components/EditServeDialog";
+import { updateServeAttempt, syncSupabaseServesToLocal } from "@/lib/supabase";
 
 interface DashboardProps {
   clients: ClientData[];
@@ -31,36 +32,65 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ clients, serves }) => {
-  const recentServes = [...serves].sort((a, b) => 
+  const [localServes, setLocalServes] = useState<ServeAttemptData[]>(serves);
+  const [editingServe, setEditingServe] = useState<ServeAttemptData | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Update local serves when props change
+  useEffect(() => {
+    setLocalServes(serves);
+  }, [serves]);
+
+  // Get recent serves by sorting based on timestamp
+  const recentServes = [...localServes].sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   ).slice(0, 3);
 
-  const completedServes = serves.filter(serve => serve.status === "completed").length;
-  const pendingServes = serves.filter(serve => serve.status === "failed").length;
+  const completedServes = localServes.filter(serve => serve.status === "completed").length;
+  const pendingServes = localServes.filter(serve => serve.status === "failed").length;
   
   const today = new Date();
-  const todayServes = serves.filter(serve => {
+  const todayServes = localServes.filter(serve => {
     const serveDate = new Date(serve.timestamp);
     return serveDate.toDateString() === today.toDateString();
   }).length;
 
-  // Add state variables for the edit serve dialog
-  const [editingServe, setEditingServe] = useState<ServeAttemptData | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-
   // Handle edit serve
   const handleEditServe = (serve: ServeAttemptData) => {
+    console.log("Opening edit dialog for serve:", serve);
     setEditingServe(serve);
     setEditDialogOpen(true);
   };
 
   // Handle save edited serve
   const handleSaveServe = async (updatedServe: ServeAttemptData) => {
-    // Since Dashboard doesn't have direct access to updateServe function,
-    // we'll implement a simple update in local state only
-    // The actual update will happen in the dialog component
-    console.log("Serve updated:", updatedServe);
-    return true;
+    console.log("Dashboard: Saving updated serve:", updatedServe);
+    try {
+      // Update using the supabase utility function
+      const result = await updateServeAttempt(updatedServe);
+      
+      if (result.success) {
+        console.log("Dashboard: Successfully updated serve in Supabase");
+        
+        // Update local state
+        setLocalServes(prevServes => 
+          prevServes.map(serve => 
+            serve.id === updatedServe.id ? updatedServe : serve
+          )
+        );
+        
+        // Force a sync to ensure all data is updated
+        await syncSupabaseServesToLocal();
+        
+        return true;
+      } else {
+        console.error("Dashboard: Failed to update serve:", result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error("Dashboard: Error updating serve:", error);
+      return false;
+    }
   };
 
   return (
@@ -122,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, serves }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm font-medium">Serve Status</p>
-                <h2 className="text-3xl font-bold mt-1">{serves.length}</h2>
+                <h2 className="text-3xl font-bold mt-1">{localServes.length}</h2>
               </div>
               <div className="p-3 rounded-full bg-primary/10 text-primary">
                 <ClipboardList className="h-6 w-6" />
@@ -153,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, serves }) => {
             </Link>
           </div>
 
-          {serves.length > 0 ? (
+          {localServes.length > 0 ? (
             <ServeHistory 
               serves={recentServes} 
               clients={clients} 

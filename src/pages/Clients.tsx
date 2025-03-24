@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Users, Pencil, Trash2, UserCheck } from "lucide-react";
+import { PlusCircle, Users, Pencil, Trash2, UserCheck, ArrowLeft } from "lucide-react";
 import ClientForm, { ClientData } from "@/components/ClientForm";
 import ClientDetail from "@/components/ClientDetail";
 import {
@@ -264,7 +265,7 @@ const Clients: React.FC<ClientsProps> = ({
 
   if (isDetailView && selectedClient) {
     return (
-      <div className="page-container">
+      <div className="page-container pb-20">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
           <div>
             <Button 
@@ -272,7 +273,8 @@ const Clients: React.FC<ClientsProps> = ({
               onClick={handleBackToList}
               className="mb-2"
             >
-              ← Back to Clients
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Clients
             </Button>
             <h1 className="text-2xl font-bold">{selectedClient.name}</h1>
           </div>
@@ -288,14 +290,14 @@ const Clients: React.FC<ClientsProps> = ({
                 Delete Client
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="max-h-[90vh] overflow-y-auto">
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Client</AlertDialogTitle>
                 <AlertDialogDescription>
                   Are you sure you want to delete this client? This action will also remove all serve attempts, documents, and cases associated with this client. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
+              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                 <AlertDialogCancel onClick={() => setDeleteClientId(null)}>Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                   onClick={handleDeleteClient}
@@ -311,7 +313,8 @@ const Clients: React.FC<ClientsProps> = ({
         
         <ClientDetail 
           client={selectedClient} 
-          onUpdate={handleUpdateClient} 
+          onUpdate={handleUpdateClient}
+          onBack={handleBackToList}
         />
       </div>
     );

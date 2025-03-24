@@ -117,6 +117,84 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.2);
   }
+  
+  /* Critical Mobile Fixes */
+  /* Force viewport to use visual viewport height */
+  :root {
+    --app-height: 100%;
+  }
+  
+  /* Fix scrolling when keyboard appears */
+  input, textarea, select {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    margin-bottom: 16px;
+  }
+  
+  /* Dialog and Drawer specific fixes */
+  [role="dialog"] {
+    transform: translate3d(0,0,0);
+    -webkit-transform: translate3d(0,0,0);
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  
+  [role="dialog"] form {
+    padding-bottom: 80px; /* Extra padding for keyboard */
+  }
+  
+  /* Fix for Vaul drawer */
+  .vaul-drawer-content {
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix for modal content */
+  [data-radix-popper-content-wrapper] {
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-height: 80vh !important;
+  }
+  
+  /* Enable scrolling for all dialogs */
+  [role="dialog"] [data-state="open"] {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  
+  /* Apply hardware acceleration to fix iOS rendering */
+  .fixed,
+  .absolute,
+  [role="dialog"],
+  .vaul-drawer-content,
+  [data-radix-popper-content-wrapper] {
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
+  }
+  
+  /* Fix viewport height issues on iOS */
+  @supports (-webkit-touch-callout: none) {
+    .h-screen, .min-h-screen {
+      height: -webkit-fill-available;
+      height: 100vh; /* Fallback */
+      height: 100dvh; /* Modern dynamic viewport units */
+    }
+    
+    body {
+      min-height: -webkit-fill-available;
+    }
+    
+    /* Adjust main content for iOS */
+    .page-container {
+      padding-bottom: 120px !important; /* Extra padding at the bottom for iOS */
+    }
+  }
 }
 
 @layer components {
@@ -138,6 +216,19 @@
 
   .section-container {
     @apply animate-slide-in motion-reduce:animate-none;
+  }
+  
+  /* New mobile-specific component styles */
+  .mobile-scrollable {
+    @apply overflow-y-auto overscroll-contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    transform: translate3d(0,0,0);
+    -webkit-transform: translate3d(0,0,0);
+  }
+  
+  .mobile-form {
+    @apply pb-20; /* Extra padding for keyboard */
   }
 }
 

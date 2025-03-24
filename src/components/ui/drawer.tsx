@@ -45,10 +45,21 @@ const DrawerContent = React.forwardRef<
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
         className
       )}
+      style={{ 
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        overscrollBehavior: 'contain',
+        maxHeight: '85vh',
+        transform: 'translate3d(0,0,0)',
+        WebkitTransform: 'translate3d(0,0,0)',
+        overflow: 'hidden'
+      }}
       {...props}
     >
-      <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-muted" />
-      {children}
+      <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-muted flex-shrink-0" />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {children}
+      </div>
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ))
@@ -59,7 +70,7 @@ const DrawerHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)}
+    className={cn("grid gap-1.5 p-4 text-center sm:text-left flex-shrink-0", className)}
     {...props}
   />
 )
@@ -70,7 +81,7 @@ const DrawerFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+    className={cn("mt-auto flex flex-col gap-2 p-4 flex-shrink-0", className)}
     {...props}
   />
 )
