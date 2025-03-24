@@ -2,7 +2,7 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface EmailProps {
-  to: string | string[];  // Updated to accept an array of emails
+  to: string;
   subject: string;
   body: string;
   imageData?: string;
@@ -16,6 +16,8 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
   const { to, subject, body, imageData, coordinates } = props;
   
   console.log("Sending email:", { to, subject });
+  console.log("Email body:", body);
+  console.log("Email lengths - subject:", subject?.length, "body:", body?.length);
   
   // Check if image data is present
   if (imageData) {
@@ -36,73 +38,54 @@ export const sendEmail = async (props: EmailProps): Promise<{ success: boolean; 
   try {
     console.log("Preparing to call Supabase Edge Function 'send-email'");
     
-    // Handle array of emails or single email
-    const recipients = Array.isArray(to) ? to : [to];
-    
-    // Validate email format for all recipients
-    for (const email of recipients) {
-      if (!email || !email.includes('@')) {
-        return {
-          success: false,
-          message: `Invalid recipient email address: ${email}`
-        };
-      }
+    // Validate email format
+    if (!to || typeof to !== 'string' || !to.includes('@')) {
+      console.error("Invalid recipient email address", to);
+      return {
+        success: false,
+        message: `Invalid recipient email address: ${to}`
+      };
     }
     
     // Prepare image data for transmission
     // Remove the data URL prefix if present
     const processedImageData = imageData ? imageData.replace(/^data:image\/(png|jpeg|jpg);base64,/, '') : undefined;
     
-    // For each recipient, send an email
-    const results = await Promise.all(recipients.map(async (recipient) => {
-      // Call Supabase Edge Function for sending email
-      const { data, error } = await supabase.functions.invoke('send-email', {
-        body: {
-          to: recipient,
-          subject,
-          body,
-          imageData: processedImageData, // Send only the base64 part of the image
-          imageFormat: imageData ? (imageData.includes('data:image/png') ? 'png' : 'jpeg') : undefined,
-          coordinates: coordinates ? {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            accuracy: coordinates.accuracy
-          } : undefined
-        }
-      });
-
-      if (error) {
-        console.error(`Error calling send-email function for ${recipient}:`, error);
-        return {
-          recipient,
-          success: false,
-          message: error.message || "Failed to send email"
-        };
-      }
-
-      console.log(`Response from send-email function for ${recipient}:`, data);
-      return {
-        recipient,
-        success: true,
-        message: data.message || `Email sent to ${recipient}${imageData ? ' with image attachment' : ''}`
-      };
-    }));
+    console.log(`Attempting to send email to: ${to}`);
     
-    // Check if any emails failed
-    const failures = results.filter(r => !r.success);
-    if (failures.length > 0) {
+    // Call Supabase Edge Function for sending email with detailed logging
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: to, // Pass as a string, not an array
+        subject,
+        body,
+        imageData: processedImageData,
+        imageFormat: imageData ? (imageData.includes('data:image/png') ? 'png' : 'jpeg') : undefined,
+        coordinates: coordinates ? {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          accuracy: coordinates.accuracy
+        } : undefined
+      }
+    });
+
+    console.log("Response from edge function:", { data, error });
+
+    if (error) {
+      console.error(`Error calling send-email function for ${to}:`, error);
       return {
         success: false,
-        message: `Failed to send email to ${failures.length} recipient(s): ${failures.map(f => f.recipient).join(', ')}`
+        message: error.message || "Failed to send email"
       };
     }
-    
+
+    console.log(`Response from send-email function for ${to}:`, data);
     return {
       success: true,
-      message: `Email sent to ${recipients.length} recipient(s)`
+      message: data?.message || `Email sent to ${to}${imageData ? ' with image attachment' : ''}`
     };
   } catch (error) {
-    console.error("Exception in sendEmail function:", error);
+    console.error(`Exception in email sending to ${to}:`, error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Failed to send email"
@@ -119,7 +102,8 @@ export const createServeEmailBody = (
   notes: string,
   timestamp: Date,
   coords: GeolocationCoordinates,
-  attemptNumber: number
+  attemptNumber: number,
+  caseNumber?: string
 ): string => {
   const googleMapsUrl = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}`;
   
@@ -128,6 +112,7 @@ Process Serve Attempt #${attemptNumber}
 
 Client: ${clientName}
 Address: ${address}
+${caseNumber ? `Case Number: ${caseNumber}\n` : ''}
 Date: ${timestamp.toLocaleString()}
 GPS Coordinates: ${coords.latitude}, ${coords.longitude}
 Location Link: ${googleMapsUrl}

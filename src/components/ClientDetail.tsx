@@ -96,9 +96,28 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                         {client.email}
                       </a>
                     </div>
-                    <div className="text-sm text-muted-foreground">Email</div>
+                    <div className="text-sm text-muted-foreground">Primary Email</div>
                   </div>
                 </div>
+                
+                {/* Display Additional Emails */}
+                {client.additionalEmails && client.additionalEmails.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div className="w-full">
+                      <div className="space-y-1">
+                        {client.additionalEmails.map((email, index) => (
+                          <div key={index}>
+                            <a href={`mailto:${email}`} className="text-primary hover:underline">
+                              {email}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Additional Emails</div>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex items-start gap-3">
                   <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />

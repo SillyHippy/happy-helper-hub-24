@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables with fallbacks for the new Supabase project
+// Get environment variables with fallbacks for the Supabase project
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qdjdmicjzmpggctzjsrf.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkamRtaWNqem1wZ2djdHpqc3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MTAxODIsImV4cCI6MjA1ODI4NjE4Mn0.St9w_1cd-8yr0vsL6tYQ0MgiQJeqV7-fw6TIursi0I8';
 
@@ -160,11 +160,9 @@ export const syncSupabaseServesToLocal = async () => {
       return null;
     }
     
-    if (!data || data.length === 0) {
-      console.log("No serve attempts found in Supabase");
-      // Important: Clear local storage when Supabase has no data
-      localStorage.setItem("serve-tracker-serves", JSON.stringify([]));
-      return [];
+    if (!data) {
+      console.log("No serve attempts data received from Supabase");
+      return null;
     }
     
     // Convert to the format used in local storage
@@ -211,6 +209,31 @@ export const updateServeAttempt = async (serve: any) => {
     }
     
     console.log("Successfully updated serve attempt");
+    
+    // Send email to client about update
+    try {
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('email, name, additional_emails')
+        .eq('id', serve.clientId)
+        .single();
+        
+      if (!clientError && clientData && (clientData.email || (clientData.additional_emails && clientData.additional_emails.length > 0))) {
+        // Collect all email addresses
+        const emails = [];
+        if (clientData.email) emails.push(clientData.email);
+        if (clientData.additional_emails && Array.isArray(clientData.additional_emails)) {
+          emails.push(...clientData.additional_emails.filter(Boolean));
+        }
+        
+        if (emails.length > 0) {
+          // We'll handle the email sending in the component
+          console.log(`Client has ${emails.length} email(s) for notifications`);
+        }
+      }
+    } catch (emailError) {
+      console.error("Error checking for client emails:", emailError);
+    }
     
     // Force a sync to ensure all clients have latest data
     await syncSupabaseServesToLocal();

@@ -105,6 +105,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          additional_emails: string[] | null
           address: string | null
           created_at: string
           email: string | null
@@ -114,6 +115,7 @@ export type Database = {
           phone: string | null
         }
         Insert: {
+          additional_emails?: string[] | null
           address?: string | null
           created_at?: string
           email?: string | null
@@ -123,6 +125,7 @@ export type Database = {
           phone?: string | null
         }
         Update: {
+          additional_emails?: string[] | null
           address?: string | null
           created_at?: string
           email?: string | null

@@ -19,11 +19,11 @@ import {
   setupRealtimeSubscription, 
   syncLocalServesToSupabase, 
   syncSupabaseServesToLocal,
-  deleteServeAttempt
+  deleteServeAttempt,
+  updateServeAttempt
 } from "./lib/supabase";
 import { toast } from "sonner";
 
-// Create QueryClient with optimistic configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -184,13 +184,16 @@ const AnimatedRoutes = () => {
       if (error) {
         console.error("Error saving client to Supabase:", error);
         toast.error("Failed to save client to database", {
-          description: error.message
+          description: error.message,
+          position: "bottom-right"
         });
         return;
       } 
       
       console.log("Successfully saved client to Supabase:", clientToSave);
-      toast.success("Client saved successfully");
+      toast.success("Client saved successfully", {
+        position: "bottom-right"
+      });
       
       const clientForState = {
         ...client,
@@ -203,12 +206,16 @@ const AnimatedRoutes = () => {
       }, 500);
     } catch (error) {
       console.error("Exception saving client:", error);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred", {
+        position: "bottom-right"
+      });
     }
   };
 
   const updateClient = async (updatedClient: ClientData) => {
     try {
+      console.log("Updating client with additional emails:", updatedClient.additionalEmails);
+      
       const clientToUpdate = {
         name: updatedClient.name,
         email: updatedClient.email,
@@ -226,13 +233,16 @@ const AnimatedRoutes = () => {
       if (error) {
         console.error("Error updating client in Supabase:", error);
         toast.error("Failed to update client in database", {
-          description: error.message
+          description: error.message,
+          position: "bottom-right"
         });
         return;
       }
       
       console.log("Successfully updated client in Supabase:", updatedClient);
-      toast.success("Client updated successfully");
+      toast.success("Client updated successfully", {
+        position: "bottom-right"
+      });
       
       setClients(prev => prev.map(client => 
         client.id === updatedClient.id ? updatedClient : client
@@ -243,7 +253,9 @@ const AnimatedRoutes = () => {
       }, 500);
     } catch (error) {
       console.error("Exception updating client:", error);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred", {
+        position: "bottom-right"
+      });
     }
   };
 
@@ -308,7 +320,8 @@ const AnimatedRoutes = () => {
       if (error) {
         console.error("Error deleting client from Supabase:", error);
         toast.error("Failed to delete client from database", {
-          description: error.message
+          description: error.message,
+          position: "bottom-right"
         });
         return false;
       }
@@ -325,11 +338,15 @@ const AnimatedRoutes = () => {
       }, 500);
       
       console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
-      toast.success("Client deleted successfully");
+      toast.success("Client deleted successfully", {
+        position: "bottom-right"
+      });
       return true;
     } catch (error) {
       console.error("Error updating local state after client deletion:", error);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred", {
+        position: "bottom-right"
+      });
       return false;
     }
   };
@@ -346,7 +363,9 @@ const AnimatedRoutes = () => {
       
       if (!client) {
         console.error("Client not found for serve attempt");
-        toast.error("Client not found");
+        toast.error("Client not found", {
+          position: "bottom-right"
+        });
         return;
       }
       
@@ -368,11 +387,14 @@ const AnimatedRoutes = () => {
       if (error) {
         console.error("Error saving serve attempt to Supabase:", error);
         toast.error("Failed to save serve attempt to database", {
-          description: error.message
+          description: error.message,
+          position: "bottom-right"
         });
       } else {
         console.log("Successfully saved serve attempt to Supabase:", data);
-        toast.success("Serve attempt saved successfully");
+        toast.success("Serve attempt saved successfully", {
+          position: "bottom-right"
+        });
         
         const supabaseServes = await syncSupabaseServesToLocal();
         if (supabaseServes && supabaseServes.length > 0) {
@@ -385,8 +407,49 @@ const AnimatedRoutes = () => {
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred", {
+        position: "bottom-right"
+      });
       setServes(prevServes => [newServe, ...prevServes]);
+    }
+  };
+
+  const updateServe = async (updatedServe: ServeAttemptData) => {
+    try {
+      console.log("Updating serve attempt:", updatedServe);
+      
+      const result = await updateServeAttempt(updatedServe);
+      
+      if (!result.success) {
+        console.error("Error updating serve attempt:", result.error);
+        toast.error("Failed to update record", {
+          description: result.error || "Please try again",
+          position: "bottom-right"
+        });
+        return false;
+      }
+      
+      setServes(prevServes => 
+        prevServes.map(serve => 
+          serve.id === updatedServe.id ? updatedServe : serve
+        )
+      );
+      
+      toast.success("Serve attempt updated successfully", {
+        position: "bottom-right"
+      });
+      
+      setTimeout(async () => {
+        await syncSupabaseServesToLocal();
+      }, 500);
+      
+      return true;
+    } catch (error) {
+      console.error("Exception updating serve attempt:", error);
+      toast.error("An unexpected error occurred", {
+        position: "bottom-right"
+      });
+      return false;
     }
   };
 
@@ -399,12 +462,17 @@ const AnimatedRoutes = () => {
       if (!result.success) {
         console.error("Error deleting serve attempt:", result.error);
         toast.error("Failed to delete record", {
-          description: result.error || "Please try again"
+          description: result.error || "Please try again",
+          position: "bottom-right"
         });
         return false;
       }
       
       setServes(serves.filter(serve => serve.id !== serveId));
+      
+      toast.success("Serve attempt deleted successfully", {
+        position: "bottom-right"
+      });
       
       setTimeout(async () => {
         await syncSupabaseServesToLocal();
@@ -467,6 +535,7 @@ const AnimatedRoutes = () => {
                 serves={serves} 
                 clients={clients} 
                 deleteServe={deleteServe}
+                updateServe={updateServe}
               />
             } />
             <Route path="export" element={<DataExport />} />
@@ -483,7 +552,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner position="top-right" closeButton={true} />
+      <Sonner position="bottom-right" closeButton={true} richColors />
       <BrowserRouter>
         <AnimatedRoutes />
       </BrowserRouter>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -19,15 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import ResponsiveDialog from "./ResponsiveDialog";
 import {
   Table,
   TableBody,
@@ -54,14 +47,16 @@ import {
   getClientCases,
   type UploadedDocument 
 } from "@/utils/supabaseStorage";
+import { toast } from "sonner";
 
 interface ClientDocumentsProps {
   clientId: string;
   clientName?: string;
   caseNumber?: string;
+  onUploadSuccess?: () => void;
 }
 
-export default function ClientDocuments({ clientId, clientName, caseNumber }: ClientDocumentsProps) {
+export default function ClientDocuments({ clientId, clientName, caseNumber, onUploadSuccess }: ClientDocumentsProps) {
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [cases, setCases] = useState<{ caseNumber: string; caseName?: string }[]>([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -70,8 +65,7 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-
+  
   useEffect(() => {
     if (clientId) {
       loadDocuments();
@@ -87,14 +81,26 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
 
   const loadDocuments = async () => {
     setIsLoading(true);
-    const docs = await getClientDocuments(clientId, caseNumber);
-    setDocuments(docs);
-    setIsLoading(false);
+    try {
+      const docs = await getClientDocuments(clientId, caseNumber);
+      setDocuments(docs);
+    } catch (error) {
+      console.error("Error loading documents:", error);
+      toast.error("Failed to load documents", {
+        position: "bottom-right"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loadCases = async () => {
-    const clientCases = await getClientCases(clientId);
-    setCases(clientCases);
+    try {
+      const clientCases = await getClientCases(clientId);
+      setCases(clientCases);
+    } catch (error) {
+      console.error("Error loading cases:", error);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,10 +113,9 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
     e.preventDefault();
     
     if (!selectedFile) {
-      toast({
-        title: "No file selected",
+      toast.error("No file selected", {
         description: "Please select a file to upload",
-        variant: "destructive"
+        position: "bottom-right"
       });
       return;
     }
@@ -126,9 +131,8 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
       );
       
       if (uploaded) {
-        toast({
-          title: "Document uploaded",
-          description: "The document was successfully uploaded"
+        toast.success("Document uploaded successfully", {
+          position: "bottom-right"
         });
         
         setDocuments([uploaded, ...documents]);
@@ -138,19 +142,22 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
         }
         setDescription("");
         setUploadDialogOpen(false);
+        
+        // Call the optional success callback
+        if (onUploadSuccess) {
+          onUploadSuccess();
+        }
       } else {
-        toast({
-          title: "Upload failed",
+        toast.error("Upload failed", {
           description: "There was a problem uploading the document",
-          variant: "destructive"
+          position: "bottom-right"
         });
       }
     } catch (error) {
       console.error("Error in upload handler:", error);
-      toast({
-        title: "Upload failed",
+      toast.error("Upload failed", {
         description: "There was a problem uploading the document",
-        variant: "destructive"
+        position: "bottom-right"
       });
     } finally {
       setIsUploading(false);
@@ -158,38 +165,56 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
   };
 
   const handleDownload = async (document: UploadedDocument) => {
-    const url = await getDocumentUrl(document.filePath);
-    
-    if (url) {
-      const a = window.document.createElement('a');
-      a.href = url;
-      a.download = document.fileName;
-      window.document.body.appendChild(a);
-      a.click();
-      window.document.body.removeChild(a);
-    } else {
-      toast({
-        title: "Download failed",
-        description: "Unable to generate download link",
-        variant: "destructive"
+    try {
+      const url = await getDocumentUrl(document.filePath);
+      
+      if (url) {
+        // Fix: Use document from window object instead of the document parameter
+        const a = window.document.createElement('a');
+        a.href = url;
+        a.download = document.fileName;
+        window.document.body.appendChild(a);
+        a.click();
+        window.document.body.removeChild(a);
+        
+        toast.success("Document download started", {
+          position: "bottom-right"
+        });
+      } else {
+        toast.error("Download failed", {
+          description: "Unable to generate download link",
+          position: "bottom-right"
+        });
+      }
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error("Download failed", {
+        description: "An error occurred while downloading",
+        position: "bottom-right"
       });
     }
   };
 
   const handleDelete = async (document: UploadedDocument) => {
-    const success = await deleteClientDocument(document.id, document.filePath);
-    
-    if (success) {
-      setDocuments(documents.filter(doc => doc.id !== document.id));
-      toast({
-        title: "Document deleted",
-        description: "The document was successfully deleted"
-      });
-    } else {
-      toast({
-        title: "Delete failed",
-        description: "There was a problem deleting the document",
-        variant: "destructive"
+    try {
+      const success = await deleteClientDocument(document.id, document.filePath);
+      
+      if (success) {
+        setDocuments(documents.filter(doc => doc.id !== document.id));
+        toast.success("Document deleted successfully", {
+          position: "bottom-right"
+        });
+      } else {
+        toast.error("Delete failed", {
+          description: "There was a problem deleting the document",
+          position: "bottom-right"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast.error("Delete failed", {
+        description: "An error occurred while deleting",
+        position: "bottom-right"
       });
     }
   };
@@ -215,92 +240,86 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
           <span>{cardTitle}</span>
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
+          <ResponsiveDialog
+            open={uploadDialogOpen}
+            onOpenChange={setUploadDialogOpen}
+            trigger={
               <Button>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Document
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload Document</DialogTitle>
-                <DialogDescription>
-                  Upload a document{clientName ? ` for ${clientName}` : ""}
-                  {caseNumber ? ` - Case #${caseNumber}` : ""}
-                </DialogDescription>
-              </DialogHeader>
+            }
+            title="Upload Document"
+            description={`Upload a document${clientName ? ` for ${clientName}` : ""}${caseNumber ? ` - Case #${caseNumber}` : ""}`}
+          >
+            <form onSubmit={handleUpload} className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="file">Document</Label>
+                <Input
+                  id="file"
+                  type="file"
+                  onChange={handleFileChange}
+                  required
+                  className="cursor-pointer"
+                />
+                {selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                  </p>
+                )}
+              </div>
               
-              <form onSubmit={handleUpload}>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="file">Document</Label>
-                    <Input
-                      id="file"
-                      type="file"
-                      onChange={handleFileChange}
-                      required
-                    />
-                    {selectedFile && (
-                      <p className="text-xs text-muted-foreground">
-                        Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                      </p>
-                    )}
-                  </div>
-                  
-                  {!caseNumber && (
-                    <div className="space-y-2">
-                      <Label htmlFor="case">Case</Label>
-                      <Select
-                        value={selectedCase}
-                        onValueChange={setSelectedCase}
-                      >
-                        <SelectTrigger id="case">
-                          <SelectValue placeholder="Select a case (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="">No case</SelectItem>
-                          {cases.map((c) => (
-                            <SelectItem key={c.caseNumber} value={c.caseNumber}>
-                              {getCaseDisplayName(c.caseNumber, c.caseName) || c.caseNumber}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Associating a document with a case helps with organization
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description (Optional)</Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Brief description of this document"
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                
-                <DialogFooter className="mt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setUploadDialogOpen(false)}
-                    disabled={isUploading}
+              {!caseNumber && (
+                <div className="space-y-2">
+                  <Label htmlFor="case">Case</Label>
+                  <Select
+                    value={selectedCase}
+                    onValueChange={setSelectedCase}
                   >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isUploading || !selectedFile}>
-                    {isUploading ? "Uploading..." : "Upload"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                    <SelectTrigger id="case">
+                      <SelectValue placeholder="Select a case (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No case</SelectItem>
+                      {cases.map((c) => (
+                        <SelectItem key={c.caseNumber} value={c.caseNumber}>
+                          {getCaseDisplayName(c.caseNumber, c.caseName) || c.caseNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Associating a document with a case helps with organization
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (Optional)</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Brief description of this document"
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setUploadDialogOpen(false)}
+                  disabled={isUploading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isUploading || !selectedFile}>
+                  {isUploading ? "Uploading..." : "Upload"}
+                </Button>
+              </div>
+            </form>
+          </ResponsiveDialog>
         </CardTitle>
         <CardDescription>
           View, upload and manage documents{caseNumber ? ` for this case` : ` for this client`}
@@ -332,8 +351,8 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
                 <TableRow>
                   <TableHead>File</TableHead>
                   {!caseNumber && <TableHead>Case</TableHead>}
-                  <TableHead>Description</TableHead>
-                  <TableHead>Size</TableHead>
+                  <TableHead className="hidden md:table-cell">Description</TableHead>
+                  <TableHead className="hidden md:table-cell">Size</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -362,12 +381,12 @@ export default function ClientDocuments({ clientId, clientName, caseNumber }: Cl
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <span className="truncate max-w-[200px] block" title={doc.description || ""}>
                         {doc.description || <span className="text-muted-foreground italic">No description</span>}
                       </span>
                     </TableCell>
-                    <TableCell>{formatFileSize(doc.fileSize)}</TableCell>
+                    <TableCell className="hidden md:table-cell">{formatFileSize(doc.fileSize)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

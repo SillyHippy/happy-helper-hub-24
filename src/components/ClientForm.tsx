@@ -40,7 +40,7 @@ interface ClientFormProps {
   isLoading?: boolean;
 }
 
-const emailSchema = z.string().email({ message: "Please enter a valid email" });
+const emailSchema = z.string().email({ message: "Please enter a valid email" }).or(z.string().length(0));
 
 const clientFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -88,6 +88,12 @@ const ClientForm: React.FC<ClientFormProps> = ({
       return;
     }
     
+    // Check for duplicates
+    if (additionalEmails.includes(newEmail) || newEmail === form.getValues().email) {
+      setEmailError("This email is already added");
+      return;
+    }
+    
     setAdditionalEmails([...additionalEmails, newEmail]);
     setNewEmail("");
     setEmailError(null);
@@ -105,7 +111,16 @@ const ClientForm: React.FC<ClientFormProps> = ({
       additionalEmails,
       id: initialData?.id
     };
+    console.log("Submitting client with additionalEmails:", additionalEmails);
     onSubmit(updatedData);
+  };
+
+  // Trap Enter key in the email input to add email instead of submitting form
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddEmail();
+    }
   };
 
   return (
@@ -179,6 +194,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
                       setNewEmail(e.target.value);
                       setEmailError(null);
                     }}
+                    onKeyDown={handleKeyDown}
                     className="flex-1"
                   />
                   <Button 

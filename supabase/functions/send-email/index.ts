@@ -5,6 +5,11 @@ import { Resend } from "npm:resend@2.0.0";
 // Initialize Resend with the API key
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
 console.log("Resend API Key configured:", resendApiKey ? "YES (length: " + resendApiKey.length + ")" : "NO");
+
+if (!resendApiKey) {
+  console.error("ERROR: No Resend API key found in environment variables");
+}
+
 const resend = new Resend(resendApiKey);
 
 // Define CORS headers
@@ -20,84 +25,89 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, imageData, imageFormat, coordinates } = await req.json();
+    console.log("Email request received");
     
-    console.log(`Processing email to: ${to}`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Has image: ${!!imageData}`);
-    console.log(`Has coordinates: ${!!coordinates}`);
-
-    // Prepare attachments if image data is present
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Request body parsed successfully");
+    } catch (error) {
+      console.error("Failed to parse request body:", error);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid JSON in request body" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
+    if (!requestBody || typeof requestBody !== 'object') {
+      console.error("Invalid request body format");
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid request body format" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const { to, subject, body, imageData, imageFormat } = requestBody;
+    
+    if (!to) {
+      console.error("Missing recipient email");
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing recipient email" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    // Ensure 'to' is handled as a string, not an array
+    const recipient = typeof to === 'string' ? to : 
+                      (Array.isArray(to) && to.length > 0) ? to[0] : null;
+    
+    if (!recipient) {
+      console.error("Invalid recipient email format:", to);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid recipient email format" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    console.log("Sending email to:", recipient);
+    
     const attachments = [];
     if (imageData) {
-      console.log(`Image format: ${imageFormat || 'jpeg'}`);
-      console.log(`Image data length: ${imageData.length}`);
-      
-      // Create a Buffer from the base64 string for the attachment
-      attachments.push({
-        filename: `serve-attempt-${new Date().toISOString()}.${imageFormat || 'jpeg'}`,
-        content: imageData,
-      });
-    }
-
-    // Create location link if coordinates are provided
-    let emailBody = body;
-    if (coordinates) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${coordinates.latitude},${coordinates.longitude}`;
-      emailBody += `\n\nLocation: ${googleMapsUrl}`;
-    }
-
-    console.log("Attempting to send email with Resend...");
-    
-    // Validate email format
-    if (!to || !to.includes('@')) {
-      throw new Error(`Invalid recipient email address: ${to}`);
+      console.log(`Adding image attachment (${imageFormat})`);
+      attachments.push({ filename: `image.${imageFormat}`, content: imageData, encoding: "base64" });
     }
     
-    // Use domain directly from environment or from your actual domain
-    const domainName = "justlegalsolutions.tech";
-    const fromAddress = `ServeTracker <no-reply@${domainName}>`;
-    console.log(`Using from address: ${fromAddress}`);
-    
-    // Send the email using Resend API
-    const emailResponse = await resend.emails.send({
-      from: fromAddress,
-      to: [to],
+    const emailData = {
+      from: "ServeTracker <onboarding@resend.dev>",
+      to: recipient, // Use a single string recipient
       subject: subject,
-      text: emailBody,
-      attachments: attachments,
-    });
-
-    console.log("Email send attempt complete:", emailResponse);
-    if (emailResponse.error) {
-      console.error("Resend API returned error:", emailResponse.error);
-      throw new Error(emailResponse.error.message || "Unknown error from Resend API");
-    }
-
-    // Return a successful response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Email sent to ${to}${imageData ? ' with image attachment' : ''}`,
-        id: emailResponse.id
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
-  } catch (error) {
-    console.error('Error processing email request:', error);
+      html: body,
+    };
     
+    if (attachments.length > 0) {
+      emailData.attachments = attachments;
+    }
+    
+    console.log("Email data prepared:", {
+      to: emailData.to,
+      subject: emailData.subject,
+      hasAttachments: attachments.length > 0
+    });
+    
+    const emailResponse = await resend.emails.send(emailData);
+    
+    console.log("Email sent successfully:", emailResponse);
+    return new Response(JSON.stringify({ success: true, response: emailResponse }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  } catch (error) {
+    console.error("Error in send-email function:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Internal Server Error" }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

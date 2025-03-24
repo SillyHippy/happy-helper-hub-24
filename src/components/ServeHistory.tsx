@@ -14,9 +14,16 @@ interface ServeHistoryProps {
   clients: ClientData[];
   onNewAttempt?: (clientId: string, caseNumber: string, previousAttempts: number) => void;
   onDelete?: (serveId: string) => Promise<boolean>;
+  onEdit?: (serve: ServeAttemptData) => void; // Add the onEdit prop
 }
 
-const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttempt, onDelete }) => {
+const ServeHistory: React.FC<ServeHistoryProps> = ({ 
+  serves, 
+  clients, 
+  onNewAttempt, 
+  onDelete,
+  onEdit // Include the onEdit prop
+}) => {
   const [deletingServeId, setDeletingServeId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -159,6 +166,18 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({ serves, clients, onNewAttem
                           </div>
                           
                           <div className="flex items-center gap-2">
+                            {/* Add edit button */}
+                            {onEdit && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                title="Edit attempt"
+                                onClick={() => onEdit(serve)}
+                              >
+                                <Edit2 className="h-4 w-4 text-primary" />
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="sm" 
