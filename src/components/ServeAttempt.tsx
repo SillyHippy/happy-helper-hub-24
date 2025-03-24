@@ -321,12 +321,13 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
         data.notes || "No additional notes",
         serveData.timestamp,
         location,
-        serveData.attemptNumber
+        serveData.attemptNumber,
+        data.caseNumber
       );
 
       const emailResult = await sendEmail({
         to: selectedClient.email,
-        subject: `Process Serve Attempt #${serveData.attemptNumber}`,
+        subject: `Process Serve Attempt #${serveData.attemptNumber} - Case ${data.caseNumber}`,
         body: emailBody,
         imageData: capturedImage,
         coordinates: location,
