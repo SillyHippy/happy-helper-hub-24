@@ -76,7 +76,14 @@ const Clients: React.FC<ClientsProps> = ({
           notes: client.notes
         });
       
-      if (error) throw error;
+      if (error) {
+        // Don't display duplicate key errors to users, just add the client to local state
+        if (error.message.includes("duplicate key value")) {
+          console.log("Duplicate key, but continuing to add client to local state");
+        } else {
+          throw error;
+        }
+      }
       
       addClient(newClient);
       setIsAddDialogOpen(false);

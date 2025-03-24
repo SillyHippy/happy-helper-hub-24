@@ -54,9 +54,10 @@ interface ClientDocumentsProps {
   clientName?: string;
   caseNumber?: string;
   onUploadSuccess?: () => void;
+  hideHeader?: boolean;
 }
 
-export default function ClientDocuments({ clientId, clientName, caseNumber, onUploadSuccess }: ClientDocumentsProps) {
+export default function ClientDocuments({ clientId, clientName, caseNumber, onUploadSuccess, hideHeader = false }: ClientDocumentsProps) {
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [cases, setCases] = useState<{ caseNumber: string; caseName?: string }[]>([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -235,96 +236,102 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
     ? `Documents for ${clientName}${caseNumber ? ` - Case #${caseNumber}` : ""}`
     : `Documents${caseNumber ? ` for Case #${caseNumber}` : ""}`;
 
+  const uploadButton = (
+    <ResponsiveDialog
+      open={uploadDialogOpen}
+      onOpenChange={setUploadDialogOpen}
+      trigger={
+        <Button>
+          <Upload className="mr-2 h-4 w-4" />
+          Upload Document
+        </Button>
+      }
+      title="Upload Document"
+      description={`Upload a document${clientName ? ` for ${clientName}` : ""}${caseNumber ? ` - Case #${caseNumber}` : ""}`}
+    >
+      <form onSubmit={handleUpload} className="space-y-4 py-2">
+        <div className="space-y-2">
+          <Label htmlFor="file">Document</Label>
+          <Input
+            id="file"
+            type="file"
+            onChange={handleFileChange}
+            required
+            className="cursor-pointer"
+          />
+          {selectedFile && (
+            <p className="text-xs text-muted-foreground">
+              Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+            </p>
+          )}
+        </div>
+        
+        {!caseNumber && (
+          <div className="space-y-2">
+            <Label htmlFor="case">Case</Label>
+            <Select
+              value={selectedCase}
+              onValueChange={setSelectedCase}
+            >
+              <SelectTrigger id="case">
+                <SelectValue placeholder="Select a case (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No case</SelectItem>
+                {cases.map((c) => (
+                  <SelectItem key={c.caseNumber} value={c.caseNumber}>
+                    {getCaseDisplayName(c.caseNumber, c.caseName) || c.caseNumber}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Associating a document with a case helps with organization
+            </p>
+          </div>
+        )}
+        
+        <div className="space-y-2">
+          <Label htmlFor="description">Description (Optional)</Label>
+          <Textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief description of this document"
+            rows={3}
+          />
+        </div>
+        
+        <div className="flex justify-end gap-2 mt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setUploadDialogOpen(false)}
+            disabled={isUploading}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isUploading || !selectedFile}>
+            {isUploading ? "Uploading..." : "Upload"}
+          </Button>
+        </div>
+      </form>
+    </ResponsiveDialog>
+  );
+
   return (
     <Card className="neo-card">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>{cardTitle}</span>
-          <ResponsiveDialog
-            open={uploadDialogOpen}
-            onOpenChange={setUploadDialogOpen}
-            trigger={
-              <Button>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Document
-              </Button>
-            }
-            title="Upload Document"
-            description={`Upload a document${clientName ? ` for ${clientName}` : ""}${caseNumber ? ` - Case #${caseNumber}` : ""}`}
-          >
-            <form onSubmit={handleUpload} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="file">Document</Label>
-                <Input
-                  id="file"
-                  type="file"
-                  onChange={handleFileChange}
-                  required
-                  className="cursor-pointer"
-                />
-                {selectedFile && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                  </p>
-                )}
-              </div>
-              
-              {!caseNumber && (
-                <div className="space-y-2">
-                  <Label htmlFor="case">Case</Label>
-                  <Select
-                    value={selectedCase}
-                    onValueChange={setSelectedCase}
-                  >
-                    <SelectTrigger id="case">
-                      <SelectValue placeholder="Select a case (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">No case</SelectItem>
-                      {cases.map((c) => (
-                        <SelectItem key={c.caseNumber} value={c.caseNumber}>
-                          {getCaseDisplayName(c.caseNumber, c.caseName) || c.caseNumber}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Associating a document with a case helps with organization
-                  </p>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of this document"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setUploadDialogOpen(false)}
-                  disabled={isUploading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isUploading || !selectedFile}>
-                  {isUploading ? "Uploading..." : "Upload"}
-                </Button>
-              </div>
-            </form>
-          </ResponsiveDialog>
-        </CardTitle>
-        <CardDescription>
-          View, upload and manage documents{caseNumber ? ` for this case` : ` for this client`}
-        </CardDescription>
-      </CardHeader>
+      {!hideHeader && (
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>{cardTitle}</span>
+            {uploadButton}
+          </CardTitle>
+          <CardDescription>
+            View, upload and manage documents{caseNumber ? ` for this case` : ` for this client`}
+          </CardDescription>
+        </CardHeader>
+      )}
       
       <CardContent>
         {isLoading ? (

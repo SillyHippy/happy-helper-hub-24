@@ -445,6 +445,15 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
     });
   };
 
+  // Handle upload document button click from edit case dialog
+  const handleUploadFromEditDialog = () => {
+    if (selectedCase) {
+      setActiveCase(selectedCase.id);
+      setEditCaseDialogOpen(false);
+      setUploadDialogOpen(true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="cases" value={activeTab} onValueChange={setActiveTab}>
@@ -495,26 +504,26 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                       />
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="home-address">Home Address</Label>
-                      <Textarea
-                        id="home-address"
-                        value={homeAddress}
-                        onChange={(e) => setHomeAddress(e.target.value)}
-                        placeholder="Enter home address for this case"
-                        rows={2}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="work-address">Work Address</Label>
-                      <Textarea
-                        id="work-address"
-                        value={workAddress}
-                        onChange={(e) => setWorkAddress(e.target.value)}
-                        placeholder="Enter work address for this case"
-                        rows={2}
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="home-address">Home Address</Label>
+                        <Input
+                          id="home-address"
+                          value={homeAddress}
+                          onChange={(e) => setHomeAddress(e.target.value)}
+                          placeholder="Enter home address"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="work-address">Work Address</Label>
+                        <Input
+                          id="work-address"
+                          value={workAddress}
+                          onChange={(e) => setWorkAddress(e.target.value)}
+                          placeholder="Enter work address"
+                        />
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -646,43 +655,38 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                         </div>
                       )}
                       
-                      {c.home_address && (
+                      {(c.home_address || c.work_address) && (
                         <div className="space-y-2 mt-2">
-                          <h4 className="font-medium flex items-center">
-                            <Home className="h-4 w-4 mr-1" />
-                            Home Address
-                          </h4>
-                          <a 
-                            href={getMapLink(c.home_address)}
-                            className="text-sm text-primary hover:underline flex items-center group"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => handleAddressClick(c.home_address, e)}
-                          >
-                            <MapPin className="h-3 w-3 mr-1 inline" />
-                            <span className="flex-1">{c.home_address}</span>
-                            <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </a>
-                        </div>
-                      )}
-                      
-                      {c.work_address && (
-                        <div className="space-y-2 mt-2">
-                          <h4 className="font-medium flex items-center">
-                            <Building className="h-4 w-4 mr-1" />
-                            Work Address
-                          </h4>
-                          <a 
-                            href={getMapLink(c.work_address)}
-                            className="text-sm text-primary hover:underline flex items-center group"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => handleAddressClick(c.work_address, e)}
-                          >
-                            <MapPin className="h-3 w-3 mr-1 inline" />
-                            <span className="flex-1">{c.work_address}</span>
-                            <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </a>
+                          <h4 className="font-medium">Addresses</h4>
+                          <div className="space-y-2">
+                            {c.home_address && (
+                              <a 
+                                href={getMapLink(c.home_address)}
+                                className="text-sm text-primary hover:underline flex items-center group"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => handleAddressClick(c.home_address, e)}
+                              >
+                                <Home className="h-3 w-3 mr-1 inline" />
+                                <span className="flex-1">{c.home_address}</span>
+                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            )}
+                            
+                            {c.work_address && (
+                              <a 
+                                href={getMapLink(c.work_address)}
+                                className="text-sm text-primary hover:underline flex items-center group"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => handleAddressClick(c.work_address, e)}
+                              >
+                                <Building className="h-3 w-3 mr-1 inline" />
+                                <span className="flex-1">{c.work_address}</span>
+                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            )}
+                          </div>
                         </div>
                       )}
                       
@@ -702,82 +706,17 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                       <CardTitle>
                         {getActiveCase()?.case_name || getActiveCase()?.case_number}
                       </CardTitle>
-                      
-                      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Document
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Upload Document</DialogTitle>
-                            <DialogDescription>
-                              Upload a document for case #{getActiveCase()?.case_number}
-                            </DialogDescription>
-                          </DialogHeader>
-                          
-                          <form onSubmit={handleUploadDocument}>
-                            <div className="grid gap-4 py-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="document">Select Document</Label>
-                                <Input
-                                  id="document"
-                                  type="file"
-                                  onChange={handleFileChange}
-                                  required
-                                />
-                                {selectedFile && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
-                                  </p>
-                                )}
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor="doc-description">Description (Optional)</Label>
-                                <Textarea
-                                  id="doc-description"
-                                  value={fileDescription}
-                                  onChange={(e) => setFileDescription(e.target.value)}
-                                  placeholder="Brief description of this document"
-                                  rows={2}
-                                />
-                              </div>
-                            </div>
-                            
-                            <DialogFooter>
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                onClick={() => {
-                                  setSelectedFile(null);
-                                  setFileDescription("");
-                                  setUploadDialogOpen(false);
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                              <Button 
-                                type="submit" 
-                                disabled={isUploading || !selectedFile}
-                              >
-                                {isUploading ? "Uploading..." : "Upload"}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </DialogContent>
-                      </Dialog>
                     </div>
-                    <CardDescription>
-                      Case #{getActiveCase()?.case_number} - 
-                      <span className={`ml-2 ${
-                        getActiveCase()?.status === 'Active' ? 'text-green-600' :
-                        getActiveCase()?.status === 'Pending' ? 'text-yellow-600' :
-                        'text-gray-600'
-                      }`}>
-                        {getActiveCase()?.status}
+                    <CardDescription className="flex items-center justify-between">
+                      <span>
+                        Case #{getActiveCase()?.case_number} - 
+                        <span className={`ml-2 ${
+                          getActiveCase()?.status === 'Active' ? 'text-green-600' :
+                          getActiveCase()?.status === 'Pending' ? 'text-yellow-600' :
+                          'text-gray-600'
+                        }`}>
+                          {getActiveCase()?.status}
+                        </span>
                       </span>
                     </CardDescription>
                   </CardHeader>
@@ -807,7 +746,18 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       <Dialog open={editCaseDialogOpen} onOpenChange={setEditCaseDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Case</DialogTitle>
+            <DialogTitle className="flex justify-between items-center">
+              <span>Edit Case</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center"
+                onClick={handleUploadFromEditDialog}
+              >
+                <Upload className="h-4 w-4 mr-1" />
+                <span>Upload</span>
+              </Button>
+            </DialogTitle>
             <DialogDescription>
               Update case information
             </DialogDescription>
@@ -836,26 +786,26 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="edit-home-address">Home Address</Label>
-                <Textarea
-                  id="edit-home-address"
-                  value={homeAddress}
-                  onChange={(e) => setHomeAddress(e.target.value)}
-                  placeholder="Enter home address for this case"
-                  rows={2}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-work-address">Work Address</Label>
-                <Textarea
-                  id="edit-work-address"
-                  value={workAddress}
-                  onChange={(e) => setWorkAddress(e.target.value)}
-                  placeholder="Enter work address for this case"
-                  rows={2}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-home-address">Home Address</Label>
+                  <Input
+                    id="edit-home-address"
+                    value={homeAddress}
+                    onChange={(e) => setHomeAddress(e.target.value)}
+                    placeholder="Enter home address"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-work-address">Work Address</Label>
+                  <Input
+                    id="edit-work-address"
+                    value={workAddress}
+                    onChange={(e) => setWorkAddress(e.target.value)}
+                    placeholder="Enter work address"
+                  />
+                </div>
               </div>
               
               <div className="space-y-2">
