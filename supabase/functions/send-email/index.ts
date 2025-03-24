@@ -79,8 +79,9 @@ serve(async (req) => {
       attachments.push({ filename: `image.${imageFormat}`, content: imageData, encoding: "base64" });
     }
     
+    // Use the verified domain in the from field
     const emailData = {
-      from: "ServeTracker <onboarding@resend.dev>",
+      from: "ServeTracker <notifications@justlegalsolutions.tech>",
       to: recipient, // Use a single string recipient
       subject: subject,
       html: body,
@@ -91,6 +92,7 @@ serve(async (req) => {
     }
     
     console.log("Email data prepared:", {
+      from: emailData.from,
       to: emailData.to,
       subject: emailData.subject,
       hasAttachments: attachments.length > 0
