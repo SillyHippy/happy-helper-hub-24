@@ -20,7 +20,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ServeAttemptData } from "./ServeAttempt";
-import { useToast } from "@/hooks/use-toast";
 import { sendEmail, createUpdateNotificationEmail } from "@/utils/email";
 import { supabase } from "@/lib/supabase";
 
@@ -48,7 +47,6 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
   const [isSaving, setIsSaving] = useState(false);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string>("Client");
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchClientEmail = async () => {
@@ -110,25 +108,14 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
             });
             
             if (emailResult.success) {
-              toast({
-                title: "Email Sent",
-                description: "Status update email sent to client"
-              });
+              console.log("Email Sent: Status update email sent to client");
             } else {
               console.error("Email sending failed:", emailResult.message);
-              toast({
-                variant: "destructive",
-                title: "Email Failed",
-                description: "Failed to send status update email: " + emailResult.message
-              });
+              console.log("Email Failed: Failed to send status update email: " + emailResult.message);
             }
           } catch (error) {
             console.error("Error sending status update email:", error);
-            toast({
-              variant: "destructive",
-              title: "Email Error",
-              description: "Failed to send status update email"
-            });
+            console.log("Email Error: Failed to send status update email");
           }
         }
         
@@ -136,11 +123,7 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
       }
     } catch (error) {
       console.error("Error saving serve attempt:", error);
-      toast({
-        variant: "destructive",
-        title: "Save Error",
-        description: "An error occurred while saving"
-      });
+      console.log("Save Error: An error occurred while saving");
     } finally {
       setIsSaving(false);
     }

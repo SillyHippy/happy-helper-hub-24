@@ -1,8 +1,8 @@
+
 import React, { useRef, useState, useEffect } from "react";
 import { Camera, X, Image, MapPin, CheckCircle, AlertCircle, RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
 import { getGpsPosition, getVideoDevices, isIOSDevice, isAndroidDevice } from "@/utils/gps";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -23,7 +23,6 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
   const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
   const [useNativeCamera, setUseNativeCamera] = useState(false);
-  const { toast } = useToast();
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -156,11 +155,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
       
       setUseNativeCamera(true);
       
-      toast({
-        title: "Camera error",
-        description: "Using device camera app instead. Please take a photo when prompted.",
-        variant: "destructive",
-      });
+      console.log("Camera error: Using device camera app instead. Please take a photo when prompted.");
     }
   };
 
@@ -182,11 +177,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
               console.error("Error playing video:", e);
               setCameraStatus("error");
               setUseNativeCamera(true);
-              toast({
-                title: "Video playback error",
-                description: "Using device camera app instead. Please take a photo when prompted.",
-                variant: "destructive",
-              });
+              console.log("Video playback error: Using device camera app instead. Please take a photo when prompted.");
             });
         }
       };
@@ -238,11 +229,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
     } catch (error) {
       console.error("Error getting GPS:", error);
       setLocationStatus("error");
-      toast({
-        title: "Location error",
-        description: "Unable to get your location. GPS may be disabled.",
-        variant: "destructive",
-      });
+      console.log("Location error: Unable to get your location. GPS may be disabled.");
     }
   };
 
@@ -263,17 +250,9 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
         stopCamera();
       }
     } else if (!location) {
-      toast({
-        title: "GPS required",
-        description: "Please wait for GPS location before capturing.",
-        variant: "destructive",
-      });
+      console.log("GPS required: Please wait for GPS location before capturing.");
     } else if (!videoRef.current || !canvasRef.current) {
-      toast({
-        title: "Camera error",
-        description: "The camera preview is not ready. Please restart the camera.",
-        variant: "destructive",
-      });
+      console.log("Camera error: The camera preview is not ready. Please restart the camera.");
     }
   };
 
@@ -281,11 +260,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
     if (fileInputRef.current && location) {
       fileInputRef.current.click();
     } else if (!location) {
-      toast({
-        title: "GPS required",
-        description: "Please wait for GPS location before capturing.",
-        variant: "destructive",
-      });
+      console.log("GPS required: Please wait for GPS location before capturing.");
     }
   };
 
@@ -295,11 +270,7 @@ const CameraComponent: React.FC<CameraComponentProps> = ({ onCapture }) => {
       const file = files[0];
       
       if (!file.type.startsWith("image/")) {
-        toast({
-          title: "Invalid file",
-          description: "Please select an image file.",
-          variant: "destructive",
-        });
+        console.log("Invalid file: Please select an image file.");
         return;
       }
       

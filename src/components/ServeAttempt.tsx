@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -109,15 +108,12 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
         const { data, error } = await supabase
           .from('client_cases')
           .select('case_number, case_name, home_address, work_address, client_id, clients(name)')
-          // Show all cases regardless of status - no status filter
           .order('created_at', { ascending: false });
         
         if (error) {
           console.error("Error fetching all cases:", error);
           return;
         }
-        
-        console.log("Fetched cases data:", data);
         
         const mappedCases = data.map(c => {
           let clientName = "Unknown Client";
@@ -142,7 +138,6 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
           };
         });
         
-        console.log("Mapped cases:", mappedCases);
         setAllCases(mappedCases);
       } catch (error) {
         console.error("Unexpected error fetching all cases:", error);
@@ -163,15 +158,12 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
             .from('client_cases')
             .select('case_number, case_name, home_address, work_address')
             .eq('client_id', selectedClient.id)
-            // Show all cases regardless of status - no status filter
             .order('created_at', { ascending: false });
           
           if (error) {
             console.error("Error fetching cases:", error);
             return;
           }
-          
-          console.log("Client-specific cases:", data);
           
           const mappedCases = data.map(c => ({
             caseNumber: c.case_number,
@@ -298,19 +290,12 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
     e.preventDefault();
     window.open(getMapLink(address), '_blank', 'noopener,noreferrer');
     
-    toast({
-      title: "Opening map",
-      description: "Opening address location in Google Maps"
-    });
+    console.log("Opening map", "Opening address location in Google Maps");
   };
 
   const handleSubmit = async (data: ServeFormValues) => {
     if (!capturedImage || !location || !selectedClient) {
-      toast({
-        title: "Error",
-        description: "Missing required information. Please try again.",
-        variant: "destructive",
-      });
+      console.log("Error", "Missing required information. Please try again.");
       return;
     }
 
@@ -348,10 +333,7 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
       });
 
       if (emailResult.success) {
-        toast({
-          title: "Email sent",
-          description: `Notification sent to ${selectedClient.name}`,
-        });
+        console.log("Email sent", `Notification sent to ${selectedClient.name}`);
       }
 
       onComplete(serveData);
@@ -364,11 +346,7 @@ const ServeAttempt: React.FC<ServeAttemptProps> = ({
       setStep("select");
     } catch (error) {
       console.error("Error submitting serve attempt:", error);
-      toast({
-        title: "Error",
-        description: "Failed to complete the serve attempt. Please try again.",
-        variant: "destructive",
-      });
+      console.log("Error", "Failed to complete the serve attempt. Please try again.");
     } finally {
       setIsSending(false);
     }
