@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, Pencil, Trash2, UserCheck } from "lucide-react";
@@ -33,8 +34,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { toast as sonnerToast } from "sonner";
 
 interface ClientsProps {
   clients: ClientData[];
@@ -55,28 +54,21 @@ const Clients: React.FC<ClientsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientData | null>(null);
   const [isDetailView, setIsDetailView] = useState(false);
-  const isMobile = useIsMobile();
 
   const handleAddClient = async (client: ClientData) => {
     setIsLoading(true);
     
+    const newClientId = `client-${Date.now()}`;
+    const newClient = {
+      ...client,
+      id: newClientId,
+    };
+    
     try {
-      const { data: existingClient, error: checkError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('id', client.id)
-        .single();
-      
-      if (existingClient) {
-        const newId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        client.id = newId;
-        console.log("Client ID already exists, generated new ID:", newId);
-      }
-      
       const { error } = await supabase
         .from('clients')
         .insert({
-          id: client.id,
+          id: newClientId,
           name: client.name,
           email: client.email,
           phone: client.phone,
@@ -84,24 +76,12 @@ const Clients: React.FC<ClientsProps> = ({
           notes: client.notes
         });
       
-      if (error) {
-        if (error.code === '23505') {
-          sonnerToast.error("This client already exists", {
-            description: "Please try again with different information"
-          });
-        } else {
-          throw error;
-        }
-      } else {
-        addClient(client);
-        setIsAddDialogOpen(false);
-        sonnerToast.success("Client added successfully");
-      }
+      if (error) throw error;
+      
+      addClient(newClient);
+      setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding client:", error);
-      sonnerToast.error("Failed to add client", {
-        description: error instanceof Error ? error.message : "Unknown error occurred"
-      });
     } finally {
       setIsLoading(false);
     }
@@ -279,8 +259,8 @@ const Clients: React.FC<ClientsProps> = ({
 
   if (isDetailView && selectedClient) {
     return (
-      <div className="w-full">
-        <div className={`flex ${isMobile ? 'flex-col' : 'flex-row sm:items-center'} justify-between mb-6`}>
+      <div className="page-container">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
           <div>
             <Button 
               variant="outline" 
@@ -333,7 +313,7 @@ const Clients: React.FC<ClientsProps> = ({
   }
 
   return (
-    <div className="w-full">
+    <div className="page-container">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Client Management</h1>
         <p className="text-muted-foreground">
@@ -341,8 +321,8 @@ const Clients: React.FC<ClientsProps> = ({
         </p>
       </div>
 
-      <div className={`flex ${isMobile ? 'flex-col' : 'flex-row sm:flex-row'} gap-4 justify-between mb-6`}>
-        <div className={`relative ${isMobile ? 'w-full' : 'w-72'}`}>
+      <div className="flex flex-col sm:flex-row gap-4 justify-between mb-6">
+        <div className="relative w-full sm:w-72">
           <Input
             placeholder="Search clients..."
             value={searchTerm}
@@ -361,7 +341,7 @@ const Clients: React.FC<ClientsProps> = ({
               Add Client
             </Button>
           </DialogTrigger>
-          <DialogContent className={isMobile ? "w-[95%] max-w-md" : ""}>
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Client</DialogTitle>
               <DialogDescription>
@@ -390,7 +370,7 @@ const Clients: React.FC<ClientsProps> = ({
           </CardContent>
         </Card>
       ) : (
-        <div className={`grid grid-cols-1 ${isMobile ? '' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClients.map(client => (
             <Card 
               key={client.id} 

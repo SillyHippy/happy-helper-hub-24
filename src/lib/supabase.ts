@@ -17,15 +17,22 @@ export const supabase = createClient(
   {
     auth: {
       persistSession: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
     }
   }
 );
 
-// Enable realtime subscriptions for serve_attempts table with improved error handling
+// Enhanced realtime subscriptions for serve_attempts table
 export const setupRealtimeSubscription = () => {
   try {
+    console.log("Setting up realtime subscription for serve_attempts table");
+    
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('realtime-changes')
       .on(
         'postgres_changes',
         {
@@ -35,6 +42,7 @@ export const setupRealtimeSubscription = () => {
         },
         (payload) => {
           console.log('Realtime update received:', payload);
+          
           // Force a sync whenever we get a realtime update
           syncSupabaseServesToLocal().catch(err => {
             console.error("Error syncing after realtime update:", err);
@@ -45,8 +53,27 @@ export const setupRealtimeSubscription = () => {
         console.log('Realtime subscription status:', status);
       });
 
+    // Also subscribe to clients table changes
+    const clientsChannel = supabase
+      .channel('client-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients'
+        },
+        (payload) => {
+          console.log('Client table update received:', payload);
+          // Let the app know a client change happened
+          window.dispatchEvent(new CustomEvent('client-updated', { detail: payload }));
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(clientsChannel);
     };
   } catch (error) {
     console.error('Error setting up realtime subscription:', error);
@@ -97,20 +124,40 @@ export const syncLocalServesToSupabase = async () => {
   return;
 };
 
-// Improve the sync function to use simple fetch without any complex merging
+// Improved sync function for more reliable cross-platform syncing
 export const syncSupabaseServesToLocal = async () => {
   try {
     console.log("Syncing serve attempts from Supabase to local storage");
     
-    // Fetch from Supabase
-    const { data, error } = await supabase
-      .from('serve_attempts')
-      .select('*')
-      .order('timestamp', { ascending: false });
+    // Fetch from Supabase with retry logic
+    let attempts = 0;
+    const maxAttempts = 3;
+    let data = null;
+    let error = null;
+    
+    while (attempts < maxAttempts) {
+      attempts++;
+      
+      const result = await supabase
+        .from('serve_attempts')
+        .select('*')
+        .order('timestamp', { ascending: false });
+      
+      if (!result.error) {
+        data = result.data;
+        break;
+      } else {
+        error = result.error;
+        if (attempts < maxAttempts) {
+          console.warn(`Fetch attempt ${attempts} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
+        }
+      }
+    }
     
     if (error) {
-      console.error("Error fetching serve attempts from Supabase:", error);
-      return [];
+      console.error("Error fetching serve attempts from Supabase after retries:", error);
+      return null;
     }
     
     if (!data || data.length === 0) {
@@ -140,7 +187,38 @@ export const syncSupabaseServesToLocal = async () => {
     return formattedSupabaseServes;
   } catch (error) {
     console.error("Error syncing Supabase serves to local:", error);
-    return [];
+    return null;
+  }
+};
+
+// Update serve attempt function
+export const updateServeAttempt = async (serve: any) => {
+  try {
+    console.log(`Updating serve attempt with ID: ${serve.id}`);
+    
+    const { error } = await supabase
+      .from('serve_attempts')
+      .update({
+        status: serve.status,
+        notes: serve.notes,
+        case_number: serve.caseNumber
+      })
+      .eq('id', serve.id);
+    
+    if (error) {
+      console.error("Error updating serve attempt:", error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log("Successfully updated serve attempt");
+    
+    // Force a sync to ensure all clients have latest data
+    await syncSupabaseServesToLocal();
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error updating serve attempt:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 };
 

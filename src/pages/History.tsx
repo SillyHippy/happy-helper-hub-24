@@ -13,10 +13,9 @@ import { Input } from "@/components/ui/input";
 import { ClientData } from "@/components/ClientForm";
 import { ServeAttemptData } from "@/components/ServeAttempt";
 import ServeHistory from "@/components/ServeHistory";
-import { Clock, ClipboardList, Search } from "lucide-react";
+import { Clock, ClipboardList, Search, RefreshCw } from "lucide-react";
 import { syncSupabaseServesToLocal } from "@/lib/supabase";
 import { toast } from "sonner";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HistoryProps {
   serves: ServeAttemptData[];
@@ -33,7 +32,6 @@ const History: React.FC<HistoryProps> = ({
   const [filteredServes, setFilteredServes] = useState<ServeAttemptData[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
 
   // Force sync on component mount
   useEffect(() => {
@@ -62,6 +60,7 @@ const History: React.FC<HistoryProps> = ({
       const client = clients.find(c => c.id === serve.clientId);
       if (!client) return false;
       
+      // Check if search term is in client's name, address, serve notes, or case number
       return (
         client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,7 +93,7 @@ const History: React.FC<HistoryProps> = ({
   };
 
   return (
-    <div className="w-full">
+    <div className="page-container">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Serve History</h1>
         <p className="text-muted-foreground">
@@ -102,8 +101,8 @@ const History: React.FC<HistoryProps> = ({
         </p>
       </div>
 
-      <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} justify-between gap-4 mb-8`}>
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}>
+      <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
           <Card className="neo-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -137,8 +136,8 @@ const History: React.FC<HistoryProps> = ({
           </Card>
         </div>
 
-        <div className="flex flex-col gap-2 min-w-[240px]">
-          <div className="relative">
+        <div className="flex flex-col gap-2">
+          <div className="relative min-w-[240px]">
             <Input
               placeholder="Search serves..."
               value={searchTerm}
@@ -153,7 +152,9 @@ const History: React.FC<HistoryProps> = ({
             variant="outline" 
             onClick={handleManualRefresh}
             disabled={isRefreshing}
+            className="flex items-center"
           >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? "Refreshing..." : "Refresh Data"}
           </Button>
         </div>

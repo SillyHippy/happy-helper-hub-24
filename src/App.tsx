@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { TransitionGroup, CSSTransition } from "react-transition-group";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
@@ -23,7 +23,24 @@ import {
 } from "./lib/supabase";
 import { toast } from "sonner";
 
-const queryClient = new QueryClient();
+// Create QueryClient with optimistic configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5000,
+    },
+    mutations: {
+      onError: (error) => {
+        console.error("Mutation error:", error);
+        toast.error("An error occurred", {
+          description: error instanceof Error ? error.message : "Please try again"
+        });
+      }
+    }
+  }
+});
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -43,6 +60,7 @@ const AnimatedRoutes = () => {
 
   const [isInitialSync, setIsInitialSync] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     const cleanupSubscription = setupRealtimeSubscription();
@@ -59,12 +77,13 @@ const AnimatedRoutes = () => {
         try {
           console.log("Performing initial sync from Supabase to local storage");
           
+          await fetchClients();
+          
           const supabaseServes = await syncSupabaseServesToLocal();
           
           if (supabaseServes && supabaseServes.length > 0) {
             setServes(supabaseServes);
             console.log(`Synced ${supabaseServes.length} serves from Supabase`);
-            toast.success(`Synced ${supabaseServes.length} records from database`);
           } else {
             setServes([]);
             localStorage.setItem("serve-tracker-serves", JSON.stringify([]));
@@ -72,9 +91,14 @@ const AnimatedRoutes = () => {
           }
           
           setIsInitialSync(false);
+          setDataLoaded(true);
         } catch (error) {
           console.error("Error during initial sync:", error);
-          toast.error("Failed to sync with database");
+          toast.error("Failed to sync with database", {
+            description: "Will retry automatically"
+          });
+          
+          setDataLoaded(true);
         } finally {
           setIsSyncing(false);
         }
@@ -93,43 +117,16 @@ const AnimatedRoutes = () => {
           setServes(supabaseServes);
           console.log(`Periodic sync: updated with ${supabaseServes.length} serves from Supabase`);
         }
+        
+        await fetchClients();
       } catch (error) {
         console.error("Error during periodic sync:", error);
       }
-    }, 10000); // Sync every 10 seconds
+    }, 5000);
     
     return () => {
       clearInterval(syncInterval);
     };
-  }, []);
-
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*');
-          
-        if (error) {
-          throw error;
-        }
-        
-        if (data && data.length > 0) {
-          localStorage.setItem("serve-tracker-clients", JSON.stringify(data));
-          setClients(data);
-          console.log(`Loaded ${data.length} clients from Supabase`);
-        } else {
-          setClients([]);
-          localStorage.setItem("serve-tracker-clients", JSON.stringify([]));
-          console.log("No clients in Supabase, cleared local storage");
-        }
-      } catch (error) {
-        console.error("Error fetching clients from Supabase:", error);
-        toast.error("Failed to load clients from database");
-      }
-    };
-    
-    fetchClients();
   }, []);
 
   useEffect(() => {
@@ -141,22 +138,69 @@ const AnimatedRoutes = () => {
     console.log("Updated localStorage serve-tracker-serves:", serves.length, "entries");
   }, [serves]);
 
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*');
+          
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        localStorage.setItem("serve-tracker-clients", JSON.stringify(data));
+        setClients(data);
+        console.log(`Loaded ${data.length} clients from Supabase`);
+      } else {
+        localStorage.setItem("serve-tracker-clients", JSON.stringify([]));
+        setClients([]);
+        console.log("No clients in Supabase, cleared local storage");
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Error fetching clients from Supabase:", error);
+      return null;
+    }
+  };
+
   const addClient = async (client: ClientData) => {
     try {
+      const clientToSave = {
+        id: client.id || `client-${Date.now()}`,
+        name: client.name,
+        email: client.email,
+        additional_emails: client.additionalEmails || [],
+        phone: client.phone,
+        address: client.address,
+        notes: client.notes
+      };
+      
       const { error } = await supabase
         .from('clients')
-        .insert(client);
+        .insert(clientToSave);
         
       if (error) {
         console.error("Error saving client to Supabase:", error);
         toast.error("Failed to save client to database", {
           description: error.message
         });
-      } else {
-        console.log("Successfully saved client to Supabase:", client);
-        toast.success("Client saved successfully");
-        setClients([...clients, client]);
-      }
+        return;
+      } 
+      
+      console.log("Successfully saved client to Supabase:", clientToSave);
+      toast.success("Client saved successfully");
+      
+      const clientForState = {
+        ...client,
+        id: clientToSave.id
+      };
+      setClients(prev => [clientForState, ...prev]);
+      
+      setTimeout(() => {
+        fetchClients();
+      }, 500);
     } catch (error) {
       console.error("Exception saving client:", error);
       toast.error("An unexpected error occurred");
@@ -165,9 +209,18 @@ const AnimatedRoutes = () => {
 
   const updateClient = async (updatedClient: ClientData) => {
     try {
+      const clientToUpdate = {
+        name: updatedClient.name,
+        email: updatedClient.email,
+        additional_emails: updatedClient.additionalEmails || [],
+        phone: updatedClient.phone,
+        address: updatedClient.address,
+        notes: updatedClient.notes
+      };
+      
       const { error } = await supabase
         .from('clients')
-        .update(updatedClient)
+        .update(clientToUpdate)
         .eq('id', updatedClient.id);
         
       if (error) {
@@ -175,13 +228,19 @@ const AnimatedRoutes = () => {
         toast.error("Failed to update client in database", {
           description: error.message
         });
-      } else {
-        console.log("Successfully updated client in Supabase:", updatedClient);
-        toast.success("Client updated successfully");
-        setClients(clients.map(client => 
-          client.id === updatedClient.id ? updatedClient : client
-        ));
+        return;
       }
+      
+      console.log("Successfully updated client in Supabase:", updatedClient);
+      toast.success("Client updated successfully");
+      
+      setClients(prev => prev.map(client => 
+        client.id === updatedClient.id ? updatedClient : client
+      ));
+      
+      setTimeout(() => {
+        fetchClients();
+      }, 500);
     } catch (error) {
       console.error("Exception updating client:", error);
       toast.error("An unexpected error occurred");
@@ -257,8 +316,13 @@ const AnimatedRoutes = () => {
       const updatedClients = clients.filter(client => client.id !== clientId);
       setClients(updatedClients);
       
-      const updatedServes = await syncSupabaseServesToLocal();
-      setServes(updatedServes || []);
+      const updatedServes = serves.filter(serve => serve.clientId !== clientId);
+      setServes(updatedServes);
+      
+      setTimeout(async () => {
+        await fetchClients();
+        await syncSupabaseServesToLocal();
+      }, 500);
       
       console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
       toast.success("Client deleted successfully");
@@ -278,6 +342,14 @@ const AnimatedRoutes = () => {
     };
     
     try {
+      const client = clients.find(c => c.id === serve.clientId);
+      
+      if (!client) {
+        console.error("Client not found for serve attempt");
+        toast.error("Client not found");
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('serve_attempts')
         .insert({
@@ -308,6 +380,8 @@ const AnimatedRoutes = () => {
         } else {
           setServes(prevServes => [newServe, ...prevServes]);
         }
+        
+        navigate("/");
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
@@ -332,6 +406,10 @@ const AnimatedRoutes = () => {
       
       setServes(serves.filter(serve => serve.id !== serveId));
       
+      setTimeout(async () => {
+        await syncSupabaseServesToLocal();
+      }, 500);
+      
       return true;
     } catch (error) {
       console.error("Error removing serve attempt from state:", error);
@@ -350,6 +428,17 @@ const AnimatedRoutes = () => {
       }
     }
   }, [location, clients, navigate]);
+
+  if (!dataLoaded) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TransitionGroup component={null}>
@@ -383,6 +472,7 @@ const AnimatedRoutes = () => {
             <Route path="export" element={<DataExport />} />
             <Route path="*" element={<NotFound />} />
           </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </CSSTransition>
     </TransitionGroup>
@@ -393,7 +483,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" closeButton={true} />
       <BrowserRouter>
         <AnimatedRoutes />
       </BrowserRouter>

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { 
   Card,
   CardContent,
@@ -22,13 +22,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { v4 as uuidv4 } from "uuid";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Plus, X } from "lucide-react";
 
 export interface ClientData {
   id?: string;
   name: string;
-  email: string;
+  email: string;  // We'll keep this as the primary email
+  additionalEmails?: string[];  // New field for additional emails
   phone: string;
   address: string;
   notes: string;
@@ -40,9 +40,12 @@ interface ClientFormProps {
   isLoading?: boolean;
 }
 
+const emailSchema = z.string().email({ message: "Please enter a valid email" });
+
 const clientFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().email({ message: "Please enter a valid email" }),
+  email: emailSchema,
+  additionalEmails: z.array(emailSchema).optional(),
   phone: z.string().min(10, { message: "Please enter a valid phone number" }),
   address: z.string().min(5, { message: "Address must be at least 5 characters" }),
   notes: z.string().optional(),
@@ -53,11 +56,16 @@ const ClientForm: React.FC<ClientFormProps> = ({
   initialData,
   isLoading = false
 }) => {
-  const isMobile = useIsMobile();
-  
+  const [additionalEmails, setAdditionalEmails] = React.useState<string[]>(
+    initialData?.additionalEmails || []
+  );
+  const [newEmail, setNewEmail] = React.useState<string>("");
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+
   const defaultValues: ClientData = initialData || {
     name: "",
     email: "",
+    additionalEmails: [],
     phone: "",
     address: "",
     notes: ""
@@ -68,20 +76,40 @@ const ClientForm: React.FC<ClientFormProps> = ({
     defaultValues,
   });
 
-  const handleSubmit = (data: ClientData) => {
-    // If creating a new client, generate a unique ID
-    // Make sure we're using a stable ID system to prevent duplicates
-    if (!initialData?.id) {
-      data.id = `client-${uuidv4()}`;
-    } else {
-      data.id = initialData.id;
+  const handleAddEmail = () => {
+    if (!newEmail) {
+      setEmailError("Email cannot be empty");
+      return;
     }
     
-    onSubmit(data);
+    // Basic email validation
+    if (!/\S+@\S+\.\S+/.test(newEmail)) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
+    
+    setAdditionalEmails([...additionalEmails, newEmail]);
+    setNewEmail("");
+    setEmailError(null);
+  };
+
+  const handleRemoveEmail = (index: number) => {
+    const updatedEmails = [...additionalEmails];
+    updatedEmails.splice(index, 1);
+    setAdditionalEmails(updatedEmails);
+  };
+
+  const handleSubmit = (data: ClientData) => {
+    const updatedData = {
+      ...data,
+      additionalEmails,
+      id: initialData?.id
+    };
+    onSubmit(updatedData);
   };
 
   return (
-    <Card className={`neo-card w-full ${isMobile ? "" : "max-w-md mx-auto"} animate-scale-in`}>
+    <Card className="neo-card w-full max-w-md mx-auto animate-scale-in">
       <CardHeader>
         <CardTitle>{initialData ? "Edit Client" : "Add New Client"}</CardTitle>
         <CardDescription>
@@ -113,7 +141,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Primary Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="client@example.com" {...field} />
                   </FormControl>
@@ -121,6 +149,52 @@ const ClientForm: React.FC<ClientFormProps> = ({
                 </FormItem>
               )}
             />
+            
+            <div>
+              <FormLabel>Additional Emails</FormLabel>
+              <div className="space-y-2 mt-1.5">
+                {additionalEmails.map((email, index) => (
+                  <div key={index} className="flex items-center">
+                    <div className="flex-1 p-2 bg-muted rounded-md text-sm">
+                      {email}
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      className="ml-2"
+                      onClick={() => handleRemoveEmail(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    type="email"
+                    placeholder="Add another email"
+                    value={newEmail}
+                    onChange={(e) => {
+                      setNewEmail(e.target.value);
+                      setEmailError(null);
+                    }}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={handleAddEmail} 
+                    variant="outline"
+                    size="icon"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {emailError && (
+                  <p className="text-sm font-medium text-destructive mt-1">{emailError}</p>
+                )}
+              </div>
+            </div>
             
             <FormField
               control={form.control}

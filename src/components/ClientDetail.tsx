@@ -23,7 +23,6 @@ import ClientDocuments from "./ClientDocuments";
 import ClientCases from "./ClientCases";
 import { ClientData } from "./ClientForm";
 import { useToast } from "@/components/ui/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ClientDetailProps {
   client: ClientData;
@@ -34,7 +33,6 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
   const handleUpdateClient = (updatedClient: ClientData) => {
     onUpdate(updatedClient);
@@ -48,7 +46,7 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
-        <div className={`flex ${isMobile ? 'flex-col gap-3' : 'justify-between items-center'} mb-4`}>
+        <div className="flex justify-between items-center mb-4">
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="cases">Cases & Documents</TabsTrigger>
@@ -62,7 +60,7 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
                   Edit Client
                 </Button>
               </DialogTrigger>
-              <DialogContent className={isMobile ? "w-[95%] max-w-md" : ""}>
+              <DialogContent>
                 <ClientForm
                   onSubmit={handleUpdateClient}
                   initialData={client}
