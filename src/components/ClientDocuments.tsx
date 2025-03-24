@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -123,7 +122,6 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
       return;
     }
 
-    // Prevent double uploads on mobile by disabling the button immediately
     if (isUploading) return;
     
     setIsUploading(true);
@@ -149,13 +147,11 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
         setDescription("");
         setUploadDialogOpen(false);
         
-        // Clear the file input to prevent reselection on mobile
         const fileInput = document.getElementById('file') as HTMLInputElement;
         if (fileInput) {
           fileInput.value = '';
         }
         
-        // Call the optional success callback
         if (onUploadSuccess) {
           onUploadSuccess();
         }
@@ -181,7 +177,6 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
       const url = await getDocumentUrl(document.filePath);
       
       if (url) {
-        // Fix: Use document from window object instead of the document parameter
         const a = window.document.createElement('a');
         a.href = url;
         a.download = document.fileName;
@@ -270,7 +265,6 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
             required
             className="cursor-pointer"
             onClick={isMobile ? (e) => {
-              // Ensures a fresh file selection dialog on mobile devices
               const target = e.target as HTMLInputElement;
               target.value = '';
             } : undefined}
@@ -360,7 +354,7 @@ export default function ClientDocuments({ clientId, clientName, caseNumber, onUp
             <p className="text-muted-foreground">Loading documents...</p>
           </div>
         ) : documents.length === 0 ? (
-          <div className="text-center py-12 border rounded-md border-dashed">
+          <div className="text-center py-8 sm:py-12 border rounded-md border-dashed">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No documents yet</h3>
             <p className="text-muted-foreground mb-4">

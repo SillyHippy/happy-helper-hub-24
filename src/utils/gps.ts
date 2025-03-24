@@ -11,8 +11,14 @@ export const getGpsPosition = (): Promise<GeolocationPosition> => {
     }
 
     navigator.geolocation.getCurrentPosition(
-      position => resolve(position),
-      error => reject(error),
+      position => {
+        console.log("Got position:", position.coords);
+        resolve(position);
+      },
+      error => {
+        console.error("Geolocation error:", error);
+        reject(error);
+      },
       { 
         enableHighAccuracy: true, 
         timeout: 15000, 
@@ -23,12 +29,57 @@ export const getGpsPosition = (): Promise<GeolocationPosition> => {
 };
 
 /**
+ * Type guard to check if an object is GeolocationCoordinates
+ * @param coordinates The coordinates object to check
+ * @returns Boolean indicating if coordinates are valid GeolocationCoordinates
+ */
+export function isGeolocationCoordinates(coordinates: any): coordinates is GeolocationCoordinates {
+  if (!coordinates) return false;
+  
+  // Check if it's a proper object
+  if (typeof coordinates !== 'object') return false;
+  
+  // Check if it has latitude and longitude properties
+  if (!('latitude' in coordinates) || !('longitude' in coordinates)) return false;
+  
+  // Check if latitude and longitude are valid numbers
+  if (typeof coordinates.latitude !== 'number' || 
+      typeof coordinates.longitude !== 'number' ||
+      isNaN(coordinates.latitude) || 
+      isNaN(coordinates.longitude)) {
+    return false;
+  }
+  
+  // Check if values are within valid ranges
+  if (coordinates.latitude < -90 || coordinates.latitude > 90 ||
+      coordinates.longitude < -180 || coordinates.longitude > 180) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Checks if coordinates are valid
+ * @param coordinates The coordinates object to check
+ * @returns Boolean indicating if coordinates are valid
+ */
+export const hasValidCoordinates = (coordinates: any): boolean => {
+  return isGeolocationCoordinates(coordinates);
+};
+
+/**
  * Formats coordinates for display
  * @param latitude Latitude value
  * @param longitude Longitude value
  * @returns Formatted coordinates string
  */
 export const formatCoordinates = (latitude: number, longitude: number): string => {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number' || 
+      isNaN(latitude) || isNaN(longitude)) {
+    return "Invalid coordinates";
+  }
+  
   const latDir = latitude >= 0 ? "N" : "S";
   const longDir = longitude >= 0 ? "E" : "W";
   
@@ -45,7 +96,35 @@ export const formatCoordinates = (latitude: number, longitude: number): string =
  * @returns Google Maps URL
  */
 export const getGoogleMapsUrl = (latitude: number, longitude: number): string => {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number' || 
+      isNaN(latitude) || isNaN(longitude)) {
+    return "#";
+  }
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
+};
+
+/**
+ * Safely formats coordinates or returns a fallback
+ * @param coords The coordinates object or null
+ * @returns Formatted coordinates string or "No location data"
+ */
+export const safeFormatCoordinates = (coords: any): string => {
+  if (!isGeolocationCoordinates(coords)) {
+    return "No location data";
+  }
+  return formatCoordinates(coords.latitude, coords.longitude);
+};
+
+/**
+ * Safely gets Google Maps URL or returns a fallback
+ * @param coords The coordinates object or null
+ * @returns Google Maps URL or "#"
+ */
+export const safeGetGoogleMapsUrl = (coords: any): string => {
+  if (!isGeolocationCoordinates(coords)) {
+    return "#";
+  }
+  return getGoogleMapsUrl(coords.latitude, coords.longitude);
 };
 
 /**
@@ -56,13 +135,18 @@ export const getGoogleMapsUrl = (latitude: number, longitude: number): string =>
  */
 export const embedGpsIntoImage = (
   imageDataUrl: string,
-  coords: GeolocationCoordinates
+  coords: any
 ): string => {
   // In a real application, we would use a library like piexifjs to properly 
   // embed EXIF data. For this demo, we'll include the GPS data in a data attribute
   // when we create the final serve record.
   
-  console.log("Embedding GPS metadata", coords);
+  if (isGeolocationCoordinates(coords)) {
+    console.log("Embedding GPS metadata", coords);
+  } else {
+    console.log("No valid GPS metadata to embed");
+  }
+  
   return imageDataUrl;
 };
 

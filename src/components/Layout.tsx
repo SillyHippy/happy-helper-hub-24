@@ -35,7 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ className }) => {
       <Header />
       <main 
         className={cn(
-          "flex-1 page-transition page-container pb-20 overflow-x-hidden overflow-y-auto overscroll-contain", 
+          "flex-1 page-transition page-container pb-12 overflow-x-hidden overflow-y-auto overscroll-contain", 
           className
         )}
         style={{ 
@@ -44,7 +44,9 @@ const Layout: React.FC<LayoutProps> = ({ className }) => {
           height: 'var(--app-height, 100dvh)',
           maxHeight: 'calc(var(--app-height, 100dvh) - 56px)',
           transform: 'translate3d(0,0,0)',
-          WebkitTransform: 'translate3d(0,0,0)'
+          WebkitTransform: 'translate3d(0,0,0)',
+          width: '100%',
+          maxWidth: '100%'
         }}
       >
         <Outlet />

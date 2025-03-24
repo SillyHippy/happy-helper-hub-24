@@ -1,20 +1,20 @@
-
 import React, { useState } from 'react';
 import { ServeAttemptData } from './ServeAttempt';
 import { ClientData } from './ClientForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, Mail, Edit2, Trash2, Plus, FileCheck } from 'lucide-react';
+import { Clock, MapPin, Edit2, Trash2, Plus, FileCheck, MapPinOff } from 'lucide-react';
 import { deleteServeAttempt } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { formatCoordinates, getGoogleMapsUrl, isGeolocationCoordinates, safeFormatCoordinates, safeGetGoogleMapsUrl } from '@/utils/gps';
 
 interface ServeHistoryProps {
   serves: ServeAttemptData[];
   clients: ClientData[];
   onNewAttempt?: (clientId: string, caseNumber: string, previousAttempts: number) => void;
   onDelete?: (serveId: string) => Promise<boolean>;
-  onEdit?: (serve: ServeAttemptData) => void; // Add the onEdit prop
+  onEdit?: (serve: ServeAttemptData) => void;
 }
 
 const ServeHistory: React.FC<ServeHistoryProps> = ({ 
@@ -22,13 +22,12 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
   clients, 
   onNewAttempt, 
   onDelete,
-  onEdit // Include the onEdit prop
+  onEdit
 }) => {
   const [deletingServeId, setDeletingServeId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Group serves by client and case number
   const groupedServes = serves.reduce((acc, serve) => {
     const client = clients.find(c => c.id === serve.clientId);
     if (!client) return acc;
@@ -62,7 +61,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
     try {
       console.log(`Deleting serve attempt with ID: ${serveId}`);
       
-      // Use the improved function from supabase.ts
       const result = await deleteServeAttempt(serveId);
       
       if (!result.success) {
@@ -74,7 +72,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
         console.log("Successfully deleted from Supabase");
         toast.success("Record deleted successfully");
         
-        // Still call the onDelete callback to update parent state
         if (onDelete) {
           await onDelete(serveId);
         }
@@ -96,7 +93,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
     }
   };
   
-  // Sort clients alphabetically
   const sortedClients = Object.keys(groupedServes).sort();
   
   return (
@@ -106,7 +102,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
           <h3 className="text-xl font-semibold">{clientName}</h3>
           
           {Object.entries(groupedServes[clientName]).map(([caseNumber, caseServes]) => {
-            // Sort serves by timestamp, newest first
             const sortedServes = [...caseServes].sort((a, b) => 
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             );
@@ -115,7 +110,7 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
             const clientId = client?.id || "";
             
             return (
-              <Card key={caseNumber} className="neo-card overflow-hidden">
+              <Card key={caseNumber} className="overflow-hidden">
                 <CardHeader className="border-b bg-muted/50 pb-2">
                   <div className="flex items-center justify-between">
                     <div>
@@ -141,20 +136,30 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
                 <CardContent className="p-0">
                   {sortedServes.map((serve, index) => {
                     const date = new Date(serve.timestamp);
-                    const hasCoordinates = serve.coordinates && 
-                      typeof serve.coordinates.latitude === 'number' && 
-                      typeof serve.coordinates.longitude === 'number';
                     
-                    const googleMapsUrl = hasCoordinates ? 
-                      `https://www.google.com/maps?q=${serve.coordinates.latitude},${serve.coordinates.longitude}` : 
-                      null;
+                    const hasCoordinates = isGeolocationCoordinates(serve.coordinates);
+                    console.log(`Serve #${index} coordinates:`, serve.coordinates, "Has coordinates:", hasCoordinates);
+                    
+                    let googleMapsUrl = '#';
+                    let formattedCoords = 'No location data';
+                    
+                    if (hasCoordinates) {
+                      try {
+                        googleMapsUrl = safeGetGoogleMapsUrl(serve.coordinates);
+                        formattedCoords = safeFormatCoordinates(serve.coordinates);
+                        console.log("Formatted coordinates:", formattedCoords);
+                        console.log("Google Maps URL:", googleMapsUrl);
+                      } catch (error) {
+                        console.error("Error formatting coordinates:", error);
+                      }
+                    }
                     
                     const statusClass = serve.status === "completed" ? 
                       "bg-green-100 text-green-800" : 
                       "bg-amber-100 text-amber-800";
                     
                     return (
-                      <div key={serve.id} className={`p-4 ${index !== sortedServes.length - 1 ? 'border-b' : ''}`}>
+                      <div key={serve.id} className={`p-3 sm:p-4 ${index !== sortedServes.length - 1 ? 'border-b' : ''}`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">
                           <div className="flex items-center gap-2 mb-2 sm:mb-0">
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusClass}`}>
@@ -166,7 +171,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
                           </div>
                           
                           <div className="flex items-center gap-2">
-                            {/* Add edit button */}
                             {onEdit && (
                               <Button 
                                 variant="ghost" 
@@ -196,7 +200,7 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <div className="flex items-center text-sm">
-                              <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                              <Clock className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
                               <span>{date.toLocaleDateString()} at {date.toLocaleTimeString()}</span>
                             </div>
                             
@@ -209,21 +213,29 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
                           </div>
                           
                           <div className="space-y-2">
-                            <div className="flex items-center text-sm">
-                              <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                              <span className="text-muted-foreground">Location: </span>
+                            <div className="flex items-start text-sm">
                               {hasCoordinates ? (
-                                <a 
-                                  href={googleMapsUrl || '#'} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline ml-1"
-                                >
-                                  View on map
-                                </a>
+                                <MapPin className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0 mt-0.5" />
                               ) : (
-                                <span className="ml-1">No location data</span>
+                                <MapPinOff className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0 mt-0.5" />
                               )}
+                              <div>
+                                {hasCoordinates ? (
+                                  <>
+                                    <div className="mb-1">{formattedCoords}</div>
+                                    <a 
+                                      href={googleMapsUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline inline-flex items-center"
+                                    >
+                                      View on Google Maps
+                                    </a>
+                                  </>
+                                ) : (
+                                  <span>No location data</span>
+                                )}
+                              </div>
                             </div>
                             
                             {serve.imageData && (
@@ -251,7 +263,6 @@ const ServeHistory: React.FC<ServeHistoryProps> = ({
         </div>
       ))}
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>

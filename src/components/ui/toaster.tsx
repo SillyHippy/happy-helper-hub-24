@@ -1,5 +1,20 @@
 
-// This file is intentionally empty as we're removing all toast functionality
+import { toast as sonnerToast, Toaster as SonnerToaster } from "sonner";
+
 export function Toaster() {
-  return null;
+  return (
+    <SonnerToaster
+      position="bottom-center"
+      toastOptions={{
+        style: {
+          fontSize: '14px',
+          maxWidth: '90vw',
+          width: 'auto',
+        },
+        className: 'group',
+      }}
+    />
+  );
 }
+
+export const toast = sonnerToast;

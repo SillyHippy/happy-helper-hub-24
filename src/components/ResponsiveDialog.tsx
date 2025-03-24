@@ -63,7 +63,7 @@ export default function ResponsiveDialog({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent className={className}>
-        <div className="absolute right-4 top-4">
+        <div className="absolute right-3 top-3">
           <DrawerClose asChild>
             <Button variant="ghost" size="icon" className="h-7 w-7">
               <X className="h-4 w-4" />
@@ -76,13 +76,13 @@ export default function ResponsiveDialog({
           {description && <DrawerDescription>{description}</DrawerDescription>}
         </DrawerHeader>
         <div 
-          className="px-4 pb-20 overflow-y-auto flex-1"
+          className="px-3 pb-8 overflow-y-auto flex-1"
           style={{
             overflowY: 'auto',
             WebkitOverflowScrolling: 'touch',
             touchAction: 'pan-y',
             overscrollBehavior: 'contain',
-            maxHeight: 'calc(var(--app-height, 100vh) - 180px)'
+            maxHeight: 'calc(var(--app-height, 100vh) - 130px)'
           }}
         >
           {children}

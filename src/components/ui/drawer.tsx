@@ -49,7 +49,7 @@ const DrawerContent = React.forwardRef<
         WebkitOverflowScrolling: 'touch',
         touchAction: 'pan-y',
         overscrollBehavior: 'contain',
-        maxHeight: '85vh',
+        maxHeight: '80vh',
         transform: 'translate3d(0,0,0)',
         WebkitTransform: 'translate3d(0,0,0)',
         overflow: 'hidden'

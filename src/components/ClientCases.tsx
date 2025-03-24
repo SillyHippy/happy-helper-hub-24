@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Card, 
@@ -40,7 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
   Plus,
   FileEdit,
@@ -57,6 +58,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { uploadClientDocument, getClientDocuments, getDocumentUrl, deleteClientDocument, UploadedDocument } from "@/utils/supabaseStorage";
 import ClientDocuments from "@/components/ClientDocuments";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ClientCase {
   id: string;
@@ -83,6 +85,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
   const [deleteCaseDialogOpen, setDeleteCaseDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("cases");
   const [activeCase, setActiveCase] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   
   // Form state
   const [caseNumber, setCaseNumber] = useState("");
@@ -129,10 +132,8 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
         }
       } catch (error) {
         console.error("Error fetching client cases:", error);
-        toast({
-          title: "Error fetching cases",
-          description: "There was a problem loading cases for this client.",
-          variant: "destructive"
+        toast.error("Error fetching cases", {
+          description: "There was a problem loading cases for this client."
         });
       } finally {
         setIsLoading(false);
@@ -190,16 +191,13 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       setAddCaseDialogOpen(false);
       resetForm();
       
-      toast({
-        title: "Case added",
-        description: "New case has been added for this client.",
+      toast.success("Case added", {
+        description: "New case has been added for this client."
       });
     } catch (error) {
       console.error("Error adding case:", error);
-      toast({
-        title: "Error adding case",
-        description: "There was a problem adding the case.",
-        variant: "destructive"
+      toast.error("Error adding case", {
+        description: "There was a problem adding the case."
       });
     } finally {
       setIsSaving(false);
@@ -240,16 +238,13 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       setEditCaseDialogOpen(false);
       resetForm();
       
-      toast({
-        title: "Case updated",
-        description: "Case information has been updated.",
+      toast.success("Case updated", {
+        description: "Case information has been updated."
       });
     } catch (error) {
       console.error("Error updating case:", error);
-      toast({
-        title: "Error updating case",
-        description: "There was a problem updating the case.",
-        variant: "destructive"
+      toast.error("Error updating case", {
+        description: "There was a problem updating the case."
       });
     } finally {
       setIsSaving(false);
@@ -280,16 +275,13 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       setDeleteCaseDialogOpen(false);
       resetForm();
       
-      toast({
-        title: "Case deleted",
-        description: "Case has been permanently removed.",
+      toast.success("Case deleted", {
+        description: "Case has been permanently removed."
       });
     } catch (error) {
       console.error("Error deleting case:", error);
-      toast({
-        title: "Error deleting case",
-        description: "There was a problem deleting the case.",
-        variant: "destructive"
+      toast.error("Error deleting case", {
+        description: "There was a problem deleting the case."
       });
     }
   };
@@ -348,16 +340,13 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       setSelectedFile(null);
       setFileDescription("");
       
-      toast({
-        title: "Document uploaded",
-        description: "Document has been successfully uploaded.",
+      toast.success("Document uploaded", {
+        description: "Document has been successfully uploaded."
       });
     } catch (error) {
       console.error("Error uploading document:", error);
-      toast({
-        title: "Error uploading document",
-        description: "There was a problem uploading the document.",
-        variant: "destructive"
+      toast.error("Error uploading document", {
+        description: "There was a problem uploading the document."
       });
     } finally {
       setIsUploading(false);
@@ -377,10 +366,8 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       }
     } catch (error) {
       console.error("Error viewing document:", error);
-      toast({
-        title: "Error viewing document",
-        description: "There was a problem accessing the document.",
-        variant: "destructive"
+      toast.error("Error viewing document", {
+        description: "There was a problem accessing the document."
       });
     }
   };
@@ -409,16 +396,13 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       setDeleteDocumentId(null);
       setDeleteDocumentPath(null);
       
-      toast({
-        title: "Document deleted",
-        description: "Document has been permanently removed.",
+      toast.success("Document deleted", {
+        description: "Document has been permanently removed."
       });
     } catch (error) {
       console.error("Error deleting document:", error);
-      toast({
-        title: "Error deleting document",
-        description: "There was a problem deleting the document.",
-        variant: "destructive"
+      toast.error("Error deleting document", {
+        description: "There was a problem deleting the document."
       });
     }
   };
@@ -439,8 +423,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
     // Open in a new tab
     window.open(getMapLink(address), '_blank', 'noopener,noreferrer');
     
-    toast({
-      title: "Opening map",
+    toast.success("Opening map", {
       description: "Opening address location in Google Maps"
     });
   };
@@ -464,7 +447,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
         
         <TabsContent value="cases" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">{clientName}'s Cases</h2>
+            <h2 className="text-xl font-bold truncate">{clientName}'s Cases</h2>
             
             <Dialog open={addCaseDialogOpen} onOpenChange={setAddCaseDialogOpen}>
               <DialogTrigger asChild>
@@ -473,7 +456,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                   Add Case
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="h-[95vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Case</DialogTitle>
                   <DialogDescription>
@@ -552,7 +535,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                     </div>
                   </div>
                   
-                  <DialogFooter>
+                  <DialogFooter className="mt-8">
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -595,16 +578,16 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
             </Card>
           ) : (
             <>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                 {cases.map((c) => (
                   <Card 
                     key={c.id} 
-                    className={`overflow-hidden cursor-pointer transition-all hover:shadow-md neo-card ${activeCase === c.id ? 'ring-2 ring-primary' : ''}`}
+                    className={`overflow-hidden cursor-pointer transition-all hover:shadow-md w-full ${activeCase === c.id ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => setActiveCase(c.id)}
                   >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between">
-                        <CardTitle className="text-lg flex-1 truncate">
+                        <CardTitle className="flex-1 truncate">
                           {c.case_name || c.case_number}
                         </CardTitle>
                         
@@ -651,7 +634,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                       {c.description && (
                         <div className="space-y-2">
                           <h4 className="font-medium">Notes</h4>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{c.description}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">{c.description}</p>
                         </div>
                       )}
                       
@@ -667,9 +650,9 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                                 rel="noopener noreferrer"
                                 onClick={(e) => handleAddressClick(c.home_address, e)}
                               >
-                                <Home className="h-3 w-3 mr-1 inline" />
-                                <span className="flex-1">{c.home_address}</span>
-                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <Home className="h-3 w-3 mr-1 inline flex-shrink-0" />
+                                <span className="flex-1 truncate">{c.home_address}</span>
+                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                               </a>
                             )}
                             
@@ -681,9 +664,9 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                                 rel="noopener noreferrer"
                                 onClick={(e) => handleAddressClick(c.work_address, e)}
                               >
-                                <Building className="h-3 w-3 mr-1 inline" />
-                                <span className="flex-1">{c.work_address}</span>
-                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <Building className="h-3 w-3 mr-1 inline flex-shrink-0" />
+                                <span className="flex-1 truncate">{c.work_address}</span>
+                                <ExternalLink className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                               </a>
                             )}
                           </div>
@@ -691,7 +674,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                       )}
                       
                       <div className="flex items-center space-x-2 mt-3 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3 flex-shrink-0" />
                         <span>Created {new Date(c.created_at).toLocaleDateString()}</span>
                       </div>
                     </CardContent>
@@ -703,7 +686,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
                 <Card className="mt-6">
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>
+                      <CardTitle className="truncate">
                         {getActiveCase()?.case_name || getActiveCase()?.case_number}
                       </CardTitle>
                     </div>
@@ -744,19 +727,10 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
       
       {/* Edit Case Dialog */}
       <Dialog open={editCaseDialogOpen} onOpenChange={setEditCaseDialogOpen}>
-        <DialogContent>
+        <DialogContent className="h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
               <span>Edit Case</span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center"
-                onClick={handleUploadFromEditDialog}
-              >
-                <Upload className="h-4 w-4 mr-1" />
-                <span>Upload</span>
-              </Button>
             </DialogTitle>
             <DialogDescription>
               Update case information
@@ -834,7 +808,7 @@ export default function ClientCases({ clientId, clientName }: ClientCasesProps) 
               </div>
             </div>
             
-            <DialogFooter>
+            <DialogFooter className="mt-8">
               <Button 
                 type="button" 
                 variant="outline" 

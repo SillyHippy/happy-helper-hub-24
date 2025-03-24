@@ -22,16 +22,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, X } from "lucide-react";
 
 export interface ClientData {
   id?: string;
   name: string;
-  email: string;  // We'll keep this as the primary email
-  additionalEmails?: string[];  // New field for additional emails
+  email: string;
   phone: string;
   address: string;
   notes: string;
+  additionalEmails?: string[]; // Add this back but don't display it in the UI
 }
 
 interface ClientFormProps {
@@ -45,7 +44,6 @@ const emailSchema = z.string().email({ message: "Please enter a valid email" }).
 const clientFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: emailSchema,
-  additionalEmails: z.array(emailSchema).optional(),
   phone: z.string().min(10, { message: "Please enter a valid phone number" }),
   address: z.string().min(5, { message: "Address must be at least 5 characters" }),
   notes: z.string().optional(),
@@ -56,19 +54,13 @@ const ClientForm: React.FC<ClientFormProps> = ({
   initialData,
   isLoading = false
 }) => {
-  const [additionalEmails, setAdditionalEmails] = React.useState<string[]>(
-    initialData?.additionalEmails || []
-  );
-  const [newEmail, setNewEmail] = React.useState<string>("");
-  const [emailError, setEmailError] = React.useState<string | null>(null);
-
   const defaultValues: ClientData = initialData || {
     name: "",
     email: "",
-    additionalEmails: [],
     phone: "",
     address: "",
-    notes: ""
+    notes: "",
+    additionalEmails: [] // Initialize as empty array
   };
 
   const form = useForm<ClientData>({
@@ -76,51 +68,13 @@ const ClientForm: React.FC<ClientFormProps> = ({
     defaultValues,
   });
 
-  const handleAddEmail = () => {
-    if (!newEmail) {
-      setEmailError("Email cannot be empty");
-      return;
-    }
-    
-    // Basic email validation
-    if (!/\S+@\S+\.\S+/.test(newEmail)) {
-      setEmailError("Please enter a valid email address");
-      return;
-    }
-    
-    // Check for duplicates
-    if (additionalEmails.includes(newEmail) || newEmail === form.getValues().email) {
-      setEmailError("This email is already added");
-      return;
-    }
-    
-    setAdditionalEmails([...additionalEmails, newEmail]);
-    setNewEmail("");
-    setEmailError(null);
-  };
-
-  const handleRemoveEmail = (index: number) => {
-    const updatedEmails = [...additionalEmails];
-    updatedEmails.splice(index, 1);
-    setAdditionalEmails(updatedEmails);
-  };
-
   const handleSubmit = (data: ClientData) => {
     const updatedData = {
       ...data,
-      additionalEmails,
-      id: initialData?.id
+      id: initialData?.id,
+      additionalEmails: initialData?.additionalEmails || [] // Preserve existing additionalEmails
     };
-    console.log("Submitting client with additionalEmails:", additionalEmails);
     onSubmit(updatedData);
-  };
-
-  // Trap Enter key in the email input to add email instead of submitting form
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddEmail();
-    }
   };
 
   return (
@@ -156,7 +110,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Primary Email</FormLabel>
+                  <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="client@example.com" {...field} />
                   </FormControl>
@@ -164,53 +118,6 @@ const ClientForm: React.FC<ClientFormProps> = ({
                 </FormItem>
               )}
             />
-            
-            <div>
-              <FormLabel>Additional Emails</FormLabel>
-              <div className="space-y-2 mt-1.5">
-                {additionalEmails.map((email, index) => (
-                  <div key={index} className="flex items-center">
-                    <div className="flex-1 p-2 bg-muted rounded-md text-sm">
-                      {email}
-                    </div>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className="ml-2"
-                      onClick={() => handleRemoveEmail(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    type="email"
-                    placeholder="Add another email"
-                    value={newEmail}
-                    onChange={(e) => {
-                      setNewEmail(e.target.value);
-                      setEmailError(null);
-                    }}
-                    onKeyDown={handleKeyDown}
-                    className="flex-1"
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={handleAddEmail} 
-                    variant="outline"
-                    size="icon"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {emailError && (
-                  <p className="text-sm font-medium text-destructive mt-1">{emailError}</p>
-                )}
-              </div>
-            </div>
             
             <FormField
               control={form.control}
