@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarIcon, Download, FileSpreadsheet, ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportServeData } from "@/utils/supabaseStorage";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const DataExport: React.FC = () => {
   const navigate = useNavigate();
@@ -20,20 +20,12 @@ const DataExport: React.FC = () => {
 
   const handleExport = async () => {
     if (!startDate || !endDate) {
-      toast({
-        title: "Date range required",
-        description: "Please select both a start and end date",
-        variant: "destructive",
-      });
+      console.log("Date range required: Please select both a start and end date");
       return;
     }
 
     if (startDate > endDate) {
-      toast({
-        title: "Invalid date range",
-        description: "Start date cannot be after end date",
-        variant: "destructive",
-      });
+      console.log("Invalid date range: Start date cannot be after end date");
       return;
     }
 
@@ -58,24 +50,13 @@ const DataExport: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         
-        toast({
-          title: "Export complete",
-          description: `Data exported to ${fileName}`,
-        });
+        console.log(`Export complete: Data exported to ${fileName}`);
       } else {
-        toast({
-          title: "Export failed",
-          description: result.error || "No data found in the selected date range",
-          variant: "destructive",
-        });
+        console.log("Export failed: " + (result.error || "No data found in the selected date range"));
       }
     } catch (error) {
       console.error("Export error:", error);
-      toast({
-        title: "Export failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
-        variant: "destructive",
-      });
+      console.log("Export failed: " + (error instanceof Error ? error.message : "An unexpected error occurred"));
     } finally {
       setIsExporting(false);
     }

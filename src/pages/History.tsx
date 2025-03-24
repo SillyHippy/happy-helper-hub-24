@@ -35,24 +35,13 @@ const History: React.FC<HistoryProps> = ({
       const synced = await syncSupabaseServesToLocal();
       
       if (synced) {
-        toast({
-          title: "Success",
-          description: "History refreshed successfully"
-        });
+        console.log("Success: History refreshed successfully");
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to refresh history"
-        });
+        console.log("Error: Failed to refresh history");
       }
     } catch (error) {
       console.error("Error refreshing history:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An error occurred while refreshing"
-      });
+      console.log("Error: An error occurred while refreshing");
     } finally {
       setIsSyncing(false);
     }

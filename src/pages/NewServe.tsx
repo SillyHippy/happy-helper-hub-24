@@ -6,7 +6,7 @@ import { ClientData } from "@/components/ClientForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getServeAttemptsCount, updateCaseStatus } from "@/utils/supabaseStorage";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface NewServeProps {
   clients: ClientData[];
@@ -51,11 +51,8 @@ const NewServe: React.FC<NewServeProps> = ({
           setCaseAttempts(count);
         } catch (error) {
           console.error("Error fetching attempt count:", error);
-          toast({
-            title: "Error",
-            description: "Could not retrieve previous serve attempts",
-            variant: "destructive"
-          });
+          console.log("Could not retrieve previous serve attempts");
+          setIsLoading(false);
         } finally {
           setIsLoading(false);
         }

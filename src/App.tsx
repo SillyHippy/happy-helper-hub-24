@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
@@ -22,7 +20,7 @@ import {
   deleteServeAttempt,
   updateServeAttempt
 } from "./lib/supabase";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,9 +32,6 @@ const queryClient = new QueryClient({
     mutations: {
       onError: (error) => {
         console.error("Mutation error:", error);
-        toast.error("An error occurred", {
-          description: error instanceof Error ? error.message : "Please try again"
-        });
       }
     }
   }
@@ -94,9 +89,7 @@ const AnimatedRoutes = () => {
           setDataLoaded(true);
         } catch (error) {
           console.error("Error during initial sync:", error);
-          toast.error("Failed to sync with database", {
-            description: "Will retry automatically"
-          });
+          console.log("Failed to sync with database. Will retry automatically");
           
           setDataLoaded(true);
         } finally {
@@ -183,17 +176,12 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error saving client to Supabase:", error);
-        toast.error("Failed to save client to database", {
-          description: error.message,
-          position: "bottom-right"
-        });
+        console.log("Failed to save client to database:", error.message);
         return;
       } 
       
       console.log("Successfully saved client to Supabase:", clientToSave);
-      toast.success("Client saved successfully", {
-        position: "bottom-right"
-      });
+      console.log("Client saved successfully");
       
       const clientForState = {
         ...client,
@@ -206,9 +194,7 @@ const AnimatedRoutes = () => {
       }, 500);
     } catch (error) {
       console.error("Exception saving client:", error);
-      toast.error("An unexpected error occurred", {
-        position: "bottom-right"
-      });
+      console.log("An unexpected error occurred");
     }
   };
 
@@ -232,17 +218,12 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error updating client in Supabase:", error);
-        toast.error("Failed to update client in database", {
-          description: error.message,
-          position: "bottom-right"
-        });
+        console.log("Failed to update client in database:", error.message);
         return;
       }
       
       console.log("Successfully updated client in Supabase:", updatedClient);
-      toast.success("Client updated successfully", {
-        position: "bottom-right"
-      });
+      console.log("Client updated successfully");
       
       setClients(prev => prev.map(client => 
         client.id === updatedClient.id ? updatedClient : client
@@ -253,9 +234,7 @@ const AnimatedRoutes = () => {
       }, 500);
     } catch (error) {
       console.error("Exception updating client:", error);
-      toast.error("An unexpected error occurred", {
-        position: "bottom-right"
-      });
+      console.log("An unexpected error occurred");
     }
   };
 
@@ -319,10 +298,7 @@ const AnimatedRoutes = () => {
         
       if (error) {
         console.error("Error deleting client from Supabase:", error);
-        toast.error("Failed to delete client from database", {
-          description: error.message,
-          position: "bottom-right"
-        });
+        console.log("Failed to delete client from database:", error.message);
         return false;
       }
       
@@ -338,15 +314,11 @@ const AnimatedRoutes = () => {
       }, 500);
       
       console.log(`Removed client from state and localStorage. Remaining clients: ${updatedClients.length}`);
-      toast.success("Client deleted successfully", {
-        position: "bottom-right"
-      });
+      console.log("Client deleted successfully");
       return true;
     } catch (error) {
       console.error("Error updating local state after client deletion:", error);
-      toast.error("An unexpected error occurred", {
-        position: "bottom-right"
-      });
+      console.log("An unexpected error occurred");
       return false;
     }
   };
@@ -363,9 +335,7 @@ const AnimatedRoutes = () => {
       
       if (!client) {
         console.error("Client not found for serve attempt");
-        toast.error("Client not found", {
-          position: "bottom-right"
-        });
+        console.log("Client not found");
         return;
       }
       
@@ -386,15 +356,10 @@ const AnimatedRoutes = () => {
       
       if (error) {
         console.error("Error saving serve attempt to Supabase:", error);
-        toast.error("Failed to save serve attempt to database", {
-          description: error.message,
-          position: "bottom-right"
-        });
+        console.log("Failed to save serve attempt to database:", error.message);
       } else {
         console.log("Successfully saved serve attempt to Supabase:", data);
-        toast.success("Serve attempt saved successfully", {
-          position: "bottom-right"
-        });
+        console.log("Serve attempt saved successfully");
         
         const supabaseServes = await syncSupabaseServesToLocal();
         if (supabaseServes && supabaseServes.length > 0) {
@@ -407,9 +372,7 @@ const AnimatedRoutes = () => {
       }
     } catch (error) {
       console.error("Exception saving serve attempt:", error);
-      toast.error("An unexpected error occurred", {
-        position: "bottom-right"
-      });
+      console.log("An unexpected error occurred");
       setServes(prevServes => [newServe, ...prevServes]);
     }
   };
@@ -422,10 +385,7 @@ const AnimatedRoutes = () => {
       
       if (!result.success) {
         console.error("Error updating serve attempt:", result.error);
-        toast.error("Failed to update record", {
-          description: result.error || "Please try again",
-          position: "bottom-right"
-        });
+        console.log("Failed to update record:", result.error || "Please try again");
         return false;
       }
       
@@ -435,9 +395,7 @@ const AnimatedRoutes = () => {
         )
       );
       
-      toast.success("Serve attempt updated successfully", {
-        position: "bottom-right"
-      });
+      console.log("Serve attempt updated successfully");
       
       setTimeout(async () => {
         await syncSupabaseServesToLocal();
@@ -446,9 +404,7 @@ const AnimatedRoutes = () => {
       return true;
     } catch (error) {
       console.error("Exception updating serve attempt:", error);
-      toast.error("An unexpected error occurred", {
-        position: "bottom-right"
-      });
+      console.log("An unexpected error occurred");
       return false;
     }
   };
@@ -461,18 +417,13 @@ const AnimatedRoutes = () => {
       
       if (!result.success) {
         console.error("Error deleting serve attempt:", result.error);
-        toast.error("Failed to delete record", {
-          description: result.error || "Please try again",
-          position: "bottom-right"
-        });
+        console.log("Failed to delete record:", result.error || "Please try again");
         return false;
       }
       
       setServes(serves.filter(serve => serve.id !== serveId));
       
-      toast.success("Serve attempt deleted successfully", {
-        position: "bottom-right"
-      });
+      console.log("Serve attempt deleted successfully");
       
       setTimeout(async () => {
         await syncSupabaseServesToLocal();
@@ -551,8 +502,6 @@ const AnimatedRoutes = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner position="bottom-right" closeButton={true} richColors />
       <BrowserRouter>
         <AnimatedRoutes />
       </BrowserRouter>

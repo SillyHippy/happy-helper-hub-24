@@ -23,7 +23,6 @@ import ClientForm from "./ClientForm";
 import ClientDocuments from "./ClientDocuments";
 import ClientCases from "./ClientCases";
 import { ClientData } from "./ClientForm";
-import { useToast } from "@/components/ui/use-toast";
 import ResponsiveDialog from "./ResponsiveDialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -42,15 +41,10 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const { toast } = useToast();
 
   const handleUpdateClient = (updatedClient: ClientData) => {
     onUpdate(updatedClient);
     setIsEditing(false);
-    toast({
-      title: "Client updated",
-      description: "Client information has been updated."
-    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,11 +57,6 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
     e.preventDefault();
     
     if (!selectedFile) {
-      toast({
-        title: "No file selected",
-        description: "Please select a file to upload",
-        variant: "destructive"
-      });
       return;
     }
 
@@ -82,28 +71,12 @@ export default function ClientDetail({ client, onUpdate }: ClientDetailProps) {
       );
       
       if (uploaded) {
-        toast({
-          title: "Document uploaded",
-          description: "Document uploaded successfully"
-        });
-        
         setSelectedFile(null);
         setDescription("");
         setUploadDialogOpen(false);
-      } else {
-        toast({
-          title: "Upload failed",
-          description: "There was a problem uploading the document",
-          variant: "destructive"
-        });
       }
     } catch (error) {
       console.error("Error in upload handler:", error);
-      toast({
-        title: "Upload failed",
-        description: "There was a problem uploading the document",
-        variant: "destructive"
-      });
     } finally {
       setIsUploading(false);
     }
