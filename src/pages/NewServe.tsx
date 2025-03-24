@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ServeAttempt, { ServeAttemptData } from "@/components/ServeAttempt";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getServeAttemptsCount, updateCaseStatus } from "@/utils/supabaseStorage";
 import { useToast } from "@/hooks/use-toast";
+import { isGeolocationCoordinates } from "@/utils/gps";
 
 interface NewServeProps {
   clients: ClientData[];
@@ -29,7 +29,6 @@ const NewServe: React.FC<NewServeProps> = ({
   const paramCaseNumber = searchParams.get("caseNumber");
   const { toast } = useToast();
 
-  // Debugging logs
   useEffect(() => {
     console.log("NewServe component - Initial props:", { 
       clientId, 
@@ -39,7 +38,6 @@ const NewServe: React.FC<NewServeProps> = ({
     });
   }, []);
 
-  // Fetch the correct attempt count if both clientId and caseNumber are provided
   useEffect(() => {
     const fetchAttemptCount = async () => {
       setIsLoading(true);
@@ -65,11 +63,14 @@ const NewServe: React.FC<NewServeProps> = ({
     fetchAttemptCount();
   }, [paramClientId, paramCaseNumber]);
 
-  // Enhanced handleServeComplete function that also updates case status
   const handleServeComplete = async (serveData: ServeAttemptData) => {
     console.log("Serve complete, data:", serveData);
     
-    // Update case status based on serve status
+    if (!isGeolocationCoordinates(serveData.coordinates)) {
+      console.warn("Invalid coordinates detected, setting to null");
+      serveData.coordinates = null;
+    }
+    
     if (serveData.clientId && serveData.caseNumber) {
       try {
         const statusUpdated = await updateCaseStatus(
@@ -88,7 +89,6 @@ const NewServe: React.FC<NewServeProps> = ({
       }
     }
     
-    // Add the serve record
     addServe(serveData);
     navigate("/history");
   };

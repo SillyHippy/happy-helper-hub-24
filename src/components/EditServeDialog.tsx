@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -23,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ServeAttemptData } from "./ServeAttempt";
 import { sendEmail, createUpdateNotificationEmail } from "@/utils/email";
 import { supabase } from "@/lib/supabase";
+import { isGeolocationCoordinates } from "@/utils/gps";
 
 interface EditServeDialogProps {
   serve: ServeAttemptData;
@@ -48,12 +48,13 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
   const [isSaving, setIsSaving] = useState(false);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string>("Client");
+  const [coordinates, setCoordinates] = useState<any>(serve.coordinates || {});
 
-  // Reset form values when serve prop changes
   useEffect(() => {
     setStatus(serve.status);
     setCaseNumber(serve.caseNumber || "");
     setNotes(serve.notes || "");
+    setCoordinates(serve.coordinates || {});
   }, [serve]);
 
   useEffect(() => {
@@ -88,11 +89,14 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
     try {
       console.log("Saving serve with status:", status);
       
+      const validCoordinates = isGeolocationCoordinates(coordinates) ? coordinates : null;
+      
       const updatedServe: ServeAttemptData = {
         ...serve,
         status,
         caseNumber,
-        notes
+        notes,
+        coordinates: validCoordinates
       };
       
       const success = await onSave(updatedServe);
@@ -112,7 +116,6 @@ export default function EditServeDialog({ serve, open, onOpenChange, onSave }: E
               notes
             );
             
-            // Ensure we're passing a single email string rather than an array
             const emailResult = await sendEmail({
               to: clientEmail,
               subject: `Serve Attempt Updated - ${caseNumber}`,
